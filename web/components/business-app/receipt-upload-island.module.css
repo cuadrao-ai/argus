@@ -13,8 +13,11 @@
 .island {
   position: absolute;
   right: 0;
+  display: flex;
+  align-items: center;
   width: max(40px, var(--island-width, 40px));
   height: 40px;
+  padding: 0;
   overflow: hidden;
   border-width: 1px;
   font-size: 14px;
@@ -34,6 +37,15 @@
 :global(.dark) .track { stroke: rgb(255 255 255 / 10%); }
 .arc { transition: stroke-dashoffset .45s cubic-bezier(.3,.7,.4,1); }
 .arrow { animation: bob 1s cubic-bezier(.5,0,.5,1) infinite; }
+.arrow[data-arrow="down"] { animation-direction: reverse; }
+.spin { transform-origin: 10px 10px; animation: spin 1.1s linear infinite; }
+.dash { animation: dash 1.3s cubic-bezier(.4,0,.2,1) infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes dash {
+  0% { stroke-dasharray: 2 50.27; stroke-dashoffset: 0; }
+  50% { stroke-dasharray: 32 50.27; stroke-dashoffset: -8; }
+  100% { stroke-dasharray: 2 50.27; stroke-dashoffset: -48; }
+}
 @keyframes bob { 0%,100% { transform: translateY(1.5px); opacity: .55; } 50% { transform: translateY(-1.5px); } }
 .check { stroke-dasharray: 1; animation: draw .28s cubic-bezier(.3,.7,.4,1) .05s backwards; }
 @keyframes draw { from { stroke-dashoffset: 1; } }
@@ -49,7 +61,7 @@
   pointer-events: none;
   transition: width .3s var(--spring), transform .3s .3s cubic-bezier(.5,0,.75,0), opacity .22s .38s;
 }
-.anchor[data-phone] .island { width: 40px; }
+.anchor[data-phone] .island, .island[data-dot] { width: 40px; }
 .morph {
   position: fixed; z-index: 121; pointer-events: none;
   background: white; border: 1px solid #c9cfc9;
@@ -57,6 +69,6 @@
 }
 :global(.dark) .morph { background: #1f2225; border-color: rgb(255 255 255 / 18%); }
 @media (prefers-reduced-motion: reduce) {
-  .anchor, .island, .island[data-phase="closing"], .arc, .arrow, .check { animation: none; transition: none; }
+  .anchor, .island, .island[data-phase="closing"], .arc, .arrow, .spin, .dash, .check { animation: none; transition: none; }
   .island[data-phase="closing"] { visibility: hidden; transform: none; }
 }

@@ -14,6 +14,7 @@ import { useBusiness } from "../BusinessWorkspace";
 import BusinessAddMenu from "../BusinessAddMenu";
 import { RecordsExportButton } from "./RecordsExportButton";
 import RecordsExportPanel from "./RecordsExportPanel";
+import { useRecordsExportJob } from "./records-export-job";
 import { clearRecordsExportRequest, useRecordsExportRequested } from "./records-export-request";
 import { useRecordsPeriodLabel } from "./RecordsDatePreview";
 import { periodRange, todayIso, type Period } from "../business-format";
@@ -232,11 +233,9 @@ export function ConnectedBusinessReports({ scope, transport, initial, defaultCur
   const rowRef = (id: string, node: HTMLElement | null) => { if (node) rowNodes.current.set(id, node); else rowNodes.current.delete(id); };
   const periodLabel = useRecordsPeriodLabel();
   // The export works on the table's request as it stood when Exportar was pressed.
-  const [exporting, setExporting] = useState<{ request: ReportRequest; scope: ReportScope; periodLabel: string; filterCount: number } | null>(null);
+  const { job: exportJob, panel: exporting } = useRecordsExportJob();
   const exportRequested = useRecordsExportRequested();
-  // Revisar restores the DGII fiscal scope and clears the other table filters.
-  const reviewDgiiPending = (currency: string) => recipe({ filters: reportFiltersSchema.parse({ period: state.request.filters.period, record_families: state.request.filters.record_families, currencies: [currency], fiscal_data: "missing" }) });
-  const openExport = () => { if (presentation) setExporting({ scope: { userId, businessId, grantId }, request: reportRequestSchema.parse({ ...state.request, schema_version: 2, presentation }), periodLabel: periodLabel(selectedPeriod, state.request.filters.period), filterCount: activeFilterGroups(filters).length + (filter.query.trim() ? 1 : 0) }); };
+  const openExport = () => { if (presentation) exportJob.open({ scope: { userId, businessId, grantId }, request: reportRequestSchema.parse({ ...state.request, schema_version: 2, presentation }), periodLabel: periodLabel(selectedPeriod, state.request.filters.period), filterCount: activeFilterGroups(filters).length + (filter.query.trim() ? 1 : 0) }); };
   const views = state.views.kind === "ready" ? state.views.items : [];
   const viewProblem = state.viewOperation.kind === "failed" ? state.viewOperation.problem : state.views.kind === "failed" ? state.views.problem : null;
   const uncertain = state.viewOperation.kind === "failed" && state.viewOperation.problem.kind === "uncertain";
@@ -385,6 +384,6 @@ export function ConnectedBusinessReports({ scope, transport, initial, defaultCur
         <RecordsPagePreview records={rows} preferences={table.preferences} onSortChange={() => undefined} density={table.preferences.density} resetKey={scopeKey} rowRef={rowRef} emptyContent={emptyContent} connected={{ answer: table.answer, onPage: (page) => load({ ...state.request, page }), onPageSize: (page_size) => recipe({ page_size }), onSort: currentFormat ? (sort) => recipe({ sort: recordsSortToReport(sort) }) : undefined }} />
       </RecordGlanceContext.Provider></RecordArrivalsContext.Provider>}
     </section>
-    {exporting ? <RecordsExportPanel {...exporting} transport={transport ?? liveReportingTransport} onReviewFiscal={reviewDgiiPending} onOpenBandeja={chosen?.capabilities.includes("prepare") ? () => openPanel({ kind: "inbox" }) : undefined} onClose={() => setExporting(null)} /> : null}
+    {exporting ? <RecordsExportPanel panel={exporting} transport={transport ?? liveReportingTransport} onReviewFiscal={(review) => recipe({ filters: review.request.filters })} onOpenBandeja={chosen?.capabilities.includes("prepare") ? () => openPanel({ kind: "inbox" }) : undefined} onClose={() => exportJob.close()} /> : null}
   </PullToRefresh>;
 }

@@ -13,7 +13,7 @@ export type UploadOrigin = { target: "inbox" } | { target: "composer"; conversat
  * Each file keeps the type picked when it was added, so one batch can mix receipts and sales; null lets the server
  * detect it. It also keeps the Business it was added in, so a file sent or retried after a switch still lands there.
  */
-type UploadFile = { key: string; file: File; documentType: DocumentType | null; grant: string | null } & UploadOrigin;
+type UploadFile = { key: string; file: File; documentType: DocumentType | null; grant: string | null; addedAt?: number } & UploadOrigin;
 
 /** A composer upload attaches only to the conversation it was added in. */
 export function composerUploadDisposition(origin: UploadOrigin, current: { conversationId: string | null; intakeTarget: IntakeTarget | null }): "inbox" | "attach" | "attach_and_close" {
@@ -158,7 +158,7 @@ export class ReceiptUploadQueue {
     const incoming: ReceiptUpload[] = fresh.map((candidate) => {
       const file = receiptFileWithType(candidate, limits);
       const origin: UploadOrigin = target === "composer" ? { target, conversationId } : { target };
-      const base = { file, key: randomId(), documentType, grant, ...origin };
+      const base = { file, key: randomId(), documentType, grant, addedAt: Date.now(), ...origin };
       const reason = rejectionFor(file, limits);
       return reason ? { ...base, status: "rejected", reason } : { ...base, status: "queued" };
     });

@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { ChevronLeft, CircleMinus, Loader2, TriangleAlert } from "lucide-react";
+import { useEffect, useId, useState, type ReactNode } from "react";
+import type { TFunction } from "i18next";
+import { ChevronLeft, CircleMinus, TriangleAlert } from "lucide-react";
 import BottomSheet from "@/components/ui/BottomSheet";
 import CenteredDialog from "@/components/ui/CenteredDialog";
 import { useResponsiveLayout } from "@/components/layout/useResponsiveLayout";
@@ -9,13 +10,14 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { ReferenceCode } from "@/components/status/ReferenceCode";
 import { joinCurrencyList } from "@/lib/business-month-close";
 import { reportFailure, type ReportFailure, type ReportingTransport } from "@/lib/business-reporting-wire";
-import type { ExportPreview, RecordsExportChoice, RecordsExportFile, ReportRequest, ReportScope } from "@/lib/business-reports-api";
+import type { ExportPreview, RecordsExportChoice, RecordsExportFile } from "@/lib/business-reports-api";
 import { saveBlobDownload } from "@/lib/save-blob-download";
-import { canSaveAs, chooseSavePlace, saveToPlace, type SaveAsPlace } from "@/lib/save-file-as";
+import { canSaveAs } from "@/lib/save-file-as";
 import DgiiRegistryTag from "../DgiiRegistryTag";
 import { primaryButtonClass, quietButtonClass } from "../business-ui";
 import GuideCard from "../foundation/GuideCard";
 import { showToast } from "../foundation/toasts";
+import { exportFailureText, failureOn, pendingFiscalReview, useRecordsExportJob, type ExportPanelRequest, type ExportReview } from "./records-export-job";
 import { useTransaccionesWords } from "./transacciones-words";
 import styles from "./records-filter-preview.module.css";
 
@@ -23,8 +25,6 @@ type Mode = RecordsExportChoice["mode"];
 type Format = RecordsExportChoice["format"];
 type Currencies = "all" | "current";
 type Load = { kind: "loading" } | { kind: "ready"; preview: ExportPreview } | { kind: "failed"; problem: ReportFailure };
-type Run = { kind: "idle" | "preparing" } | { kind: "failed"; problem: ReportFailure; toPlace: boolean };
-const LIMIT_CODES = new Set(["business_report_too_large"]);
 const SAVE_TIP = "business.guide_cards.exportar_guardar.";
 const noticeLinkClass = "inline min-h-0! min-w-0! cursor-pointer whitespace-nowrap rounded-mark text-[14px] leading-[inherit] text-[var(--cuadrao-green)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--cuadrao-green)]";
 
@@ -36,19 +36,21 @@ function NoticeAction({ children }: { children: ReactNode }) {
   return <span data-testid="records-export-notice-action" className="ml-4 min-w-[112px] shrink-0 text-right">{children}</span>;
 }
 
+/** The result of a finished export, said once in a toast. */
+function sayExported(t: TFunction, result: "saved" | "downloaded", file: RecordsExportFile) {
+  if (result === "saved") showToast({ kind: "success", text: t("business.transactions.reporting.export.saved") });
+  // The same bytes again, never a second request.
+  else showToast({ kind: "success", text: t("business.transactions.reporting.export.done"), action: { label: t("business.transactions.reporting.export.download_again"), run: () => saveBlobDownload(file.blob, file.filename) } });
+}
+
 export type RecordsExportProps = {
-  scope: ReportScope;
-  /** The table's own request: tab, period, currency, filters and layout. */
-  request: ReportRequest;
-  /** The screen's period, as its date control names it. */
-  periodLabel: string;
-  /** Optional filters and search the screen has on. */
-  filterCount: number;
+  /** The one request this panel works on. Every action it offers gets this request, never the table behind it. */
+  panel: ExportPanelRequest;
   transport: Pick<ReportingTransport, "exportPreview" | "exportFile">;
-  /** Shows pending fiscal records for the tab, period and form currency, clearing other filters. */
-  onReviewFiscal: (currency: string) => void;
+  /** Shows the pending fiscal records of the panel's period and family in the form's currency. */
+  onReviewFiscal: (review: ExportReview) => void;
   /** Opens the Bandeja. Absent for a person who cannot work there: the count shows with no link. */
-  onOpenBandeja?: () => void;
+  onOpenBandeja?: (panel: ExportPanelRequest) => void;
   onClose: () => void;
 };
 
@@ -56,24 +58,24 @@ export type RecordsExportProps = {
  * Exportar in Registros: the table as the person sees it, or the month's 606
  * lines, as one Excel or CSV file. Every count and notice is the server's.
  */
-export default function RecordsExportPanel({ scope, request, periodLabel, filterCount, transport, onReviewFiscal, onOpenBandeja, onClose }: RecordsExportProps) {
+export default function RecordsExportPanel({ panel, transport, onReviewFiscal, onOpenBandeja, onClose }: RecordsExportProps) {
+  const { scope, request, periodLabel, filterCount } = panel;
   const { t } = useTransaccionesWords();
   const { isBelowDesktop } = useResponsiveLayout();
   const sale = request.filters.record_families[0] === "sale";
   const current = request.filters.currencies[0] ?? "";
   const [load, setLoad] = useState<Load>({ kind: "loading" });
   const [attempt, setAttempt] = useState(0);
-  const [selectedMode, setMode] = useState<Mode>("table");
-  const [chosen, setChosen] = useState<string[] | null>(null);
+  const { job, state } = useRecordsExportJob();
+  // Opened on a file that failed, the panel starts on that file's choices.
+  const [seed] = useState(() => failureOn(state, panel)?.run.choice);
+  const [selectedMode, setMode] = useState<Mode>(seed?.mode ?? "table");
+  const [chosen, setChosen] = useState<string[] | null>(seed?.mode === "table" ? seed.columns : null);
   const [editing, setEditing] = useState(false);
-  const [currencies, setCurrencies] = useState<Currencies>("all");
+  const [currencies, setCurrencies] = useState<Currencies>(seed?.mode === "table" ? seed.currencies : "all");
   const [suppliersExpanded, setSuppliersExpanded] = useState(false);
   const suppliersId = useId();
-  const [format, setFormat] = useState<Format>("xlsx");
-  const [run, setRun] = useState<Run>({ kind: "idle" });
-  const running = useRef<AbortController | null>(null);
-  /** The Save As place of a file that failed, kept so Reintentar asks the server again without asking where. */
-  const unwritten = useRef<SaveAsPlace | null>(null);
+  const [format, setFormat] = useState<Format>(seed?.format ?? "xlsx");
 
   useEffect(() => {
     const abort = new AbortController();
@@ -84,8 +86,6 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
     );
     return () => abort.abort();
   }, [scope, request, transport, attempt]);
-  // Closing the panel cancels the file in flight: nothing downloads after it is gone, and no empty file stays.
-  useEffect(() => () => { running.current?.abort(); void unwritten.current?.discard(); }, []);
 
   const preview = load.kind === "ready" ? load.preview : null;
   const dgii = preview?.dgii;
@@ -105,45 +105,19 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
       : [periodLabel, t("business.transactions.reporting.export.summary_dgii_purchases"), t("business.transactions.reporting.export.summary_records", { count })]
     : [periodLabel, filterCount ? t("business.transactions.reporting.export.summary_filters", { count: filterCount }) : null, t("business.transactions.reporting.export.summary_records", { count }), (selection?.currencies.length ?? 0) > 1 ? t("business.transactions.reporting.export.summary_currencies", { count: selection?.currencies.length }) : null];
 
-  const download = async () => {
-    if (!preview || !count || !selection || running.current) return;
-    const choice: RecordsExportChoice = mode === "dgii" ? { mode, format } : { mode, format, columns, currencies: everyCurrency ? "all" : "current" };
+  // The file this panel would download now. Until the preview answers, nothing in it can have changed.
+  const choice: RecordsExportChoice | null = !preview || !selection ? null : mode === "dgii" ? { mode, format } : { mode, format, columns, currencies: everyCurrency ? "all" : "current" };
+  const failed = failureOn(state, panel, choice);
+
+  const download = () => {
+    if (!choice || !count || !selection) return;
     const filename = (mode === "dgii" && dgii ? dgii : selection).filenames[format];
-    const abort = new AbortController();
-    running.current = abort;
-    const kept = unwritten.current?.filename === filename ? unwritten.current : null;
-    if (!kept) void unwritten.current?.discard();
-    // Save As opens on the click itself, before the server builds the file.
-    const chosen = kept ?? await chooseSavePlace(filename, format);
-    const place = chosen === "cancelled" ? null : chosen;
-    unwritten.current = place;
-    if (abort.signal.aborted) { void place?.discard(); return; }
-    if (chosen === "cancelled") { running.current = null; return; }
-    setRun({ kind: "preparing" });
-    let file: RecordsExportFile;
-    try {
-      file = await transport.exportFile(scope, request, choice, abort.signal);
-    } catch (error) {
-      if (abort.signal.aborted) return;
-      running.current = null;
-      setRun({ kind: "failed", problem: reportFailure(error), toPlace: place !== null });
-      return;
-    }
-    if (abort.signal.aborted) return;
-    unwritten.current = null;
-    const saved = await saveToPlace(place, file.blob, file.filename, abort.signal);
-    if (saved === "aborted" || abort.signal.aborted) return;
-    running.current = null;
-    onClose();
-    if (saved === "saved") showToast({ kind: "success", text: t("business.transactions.reporting.export.saved") });
-    // The same bytes again, never a second request.
-    else showToast({ kind: "success", text: t("business.transactions.reporting.export.done"), action: { label: t("business.transactions.reporting.export.download_again"), run: () => saveBlobDownload(file.blob, file.filename) } });
+    void job.start({ panel, choice, filename, exportFile: transport.exportFile, onSaved: (result, file) => sayExported(t, result, file) });
   };
 
   const toggle = (key: string) => setChosen(columns.includes(key) ? columns.filter((item) => item !== key) : fileColumns.map((column) => column.key).filter((item) => item === key || columns.includes(item)));
   const custom = chosen !== null && (columns.length !== ownColumns.length || columns.some((key) => !ownColumns.includes(key)));
-  const problem = run.kind === "failed" ? run.problem : load.kind === "failed" ? load.problem : null;
-  const preparing = run.kind === "preparing";
+  const problem = failed?.problem ?? (load.kind === "failed" ? load.problem : null);
 
   const supplierLines = dgii?.rnc_suppliers.map((supplier) => <li key={supplier.rnc}>
     <div className="flex items-start justify-between gap-3">
@@ -153,7 +127,7 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
     <span className="block font-mono">{supplier.rnc}</span>
   </li>);
   const pendingFiscalSentence = dgii?.pending_fiscal_count ? t("business.transactions.reporting.export.pending_fiscal_purchases", { count: dgii.pending_fiscal_count }) : null;
-  const reviewFiscal = dgii ? <button type="button" className={noticeLinkClass} onClick={() => { onClose(); onReviewFiscal(dgii.currency); }}>{t("business.transactions.reporting.export.review")}</button> : null;
+  const reviewFiscal = dgii ? <button type="button" className={noticeLinkClass} onClick={() => { onClose(); onReviewFiscal(pendingFiscalReview(panel, dgii.currency)); }}>{t("business.transactions.reporting.export.review")}</button> : null;
   const pendingRate = dgii?.pending_rate_count ? t("business.transactions.reporting.export.pending_rate_purchases", { count: dgii.pending_rate_count, currencies: joinCurrencyList(dgii.pending_rate_currencies, t("business.month_close.list_and")) }) : null;
   // The 606 notices, then the Bandeja's count for the period in either mode, inside the chosen option.
   const formNotices = dgii && mode === "dgii";
@@ -172,7 +146,7 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
     preview.bandeja_count > 0 ? <li key="bandeja" data-testid="records-export-bandeja-notice" className={noticeClass}>
       {noticeMark}
       <p className="min-w-0 flex-1">{t("business.transactions.reporting.export.bandeja_notice", { count: preview.bandeja_count })}</p>
-      {onOpenBandeja ? <NoticeAction><button type="button" className={noticeLinkClass} onClick={() => { onClose(); onOpenBandeja(); }}>{t("business.transactions.reporting.export.bandeja_open")}</button></NoticeAction> : null}
+      {onOpenBandeja ? <NoticeAction><button type="button" className={noticeLinkClass} onClick={() => { onClose(); onOpenBandeja(panel); }}>{t("business.transactions.reporting.export.bandeja_open")}</button></NoticeAction> : null}
     </li> : null,
   ].filter(Boolean) : [];
   const notices = noticeItems.length ? <ul data-testid="records-export-notices" className="flex flex-col gap-[10px] pb-3 pl-10 pr-3 text-[14px] text-[#56635e] dark:text-white/70">{noticeItems}</ul> : null;
@@ -185,14 +159,13 @@ export default function RecordsExportPanel({ scope, request, periodLabel, filter
   ) : (
     <div className="space-y-2">
       {problem ? <p role="alert" className="text-[13px] text-[#9e2f39] dark:text-[#ec9aa0]">
-        {problem.kind === "access" ? t("business.transactions.reporting.access_unavailable") : LIMIT_CODES.has(problem.code) ? t("business.export.limit_error") : run.kind === "failed" && run.toPlace ? t("business.transactions.reporting.export.save_failed") : t("business.transactions.reporting.export.error")}
-        {problem.kind !== "access" ? <> <button type="button" className={quietButtonClass} onClick={() => { if (run.kind === "failed") void download(); else setAttempt((value) => value + 1); }}>{t("common.retry")}</button></> : null}
+        {exportFailureText(t, problem, Boolean(failed?.place))}
+        {problem.kind !== "access" ? <> <button type="button" className={quietButtonClass} onClick={() => { if (failed) void job.start(failed.run); else setAttempt((value) => value + 1); }}>{t("common.retry")}</button></> : null}
         {problem.requestId ? <ReferenceCode reference={problem.requestId} /> : null}
       </p> : null}
       {count === 0 ? <p role="status" className="text-[13px] text-[#56635e] dark:text-white/70">{t("business.transactions.reporting.export.empty")}</p> : null}
-      <button type="button" data-testid="records-export-download" disabled={!count || preparing} aria-busy={preparing || undefined} onClick={() => void download()} className={`${primaryButtonClass} w-full`}>
-        {preparing ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : null}
-        {preparing ? t("business.transactions.reporting.export.preparing") : count === null ? t("business.export.action") : t("business.transactions.reporting.export.action", { count })}
+      <button type="button" data-testid="records-export-download" disabled={!count || state.kind === "preparing"} onClick={download} className={`${primaryButtonClass} w-full`}>
+        {count === null ? t("business.export.action") : t("business.transactions.reporting.export.action", { count })}
       </button>
     </div>
   );
