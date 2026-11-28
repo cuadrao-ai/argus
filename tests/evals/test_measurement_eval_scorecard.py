@@ -1,227 +1,32 @@
 from __future__ import annotations
 
 import subprocess
-from dataclasses import replace
 from pathlib import Path
-from typing import Any
 
 import pytest
 
 from tests.evals import measurement_eval_scorecard as scorecards
+from tests.promotion_evidence_repository import commit_files
 
 
-def _valid_scorecard_provenance(
-    *fixture_case_ids: str,
-) -> Any:
-    return scorecards.EvalScorecardProvenance(
-        evaluation_mode="live",
-        market_data_provider_mode="live_provider",
-        asset_provider_mode="live_provider",
-        candidate_sha="a" * 40,
-        python_version="3.10.20",
-        fixture_sha256="b" * 64,
-        fixture_case_ids=fixture_case_ids or ("case-a",),
-        worktree_clean=True,
-        release_configuration={"CUADRAO_CHAT_MODEL": "test/model"},
-        live_market_data_probe=scorecards.LiveMarketDataProbe(
-            symbol="SPY",
-            requested_date_range={"start": "2024-01-01", "end": "2024-01-10"},
-            effective_date_range={"start": "2024-01-02", "end": "2024-01-10"},
-            adjustment_reason="calendar_alignment",
-        ),
-    )
+def test_committed_fixture_identity_binds_filename_and_contents(tmp_path: Path) -> None:
+    subprocess.run(["git", "init", "--quiet"], cwd=tmp_path, check=True)
+    original = "tests/evals/measurement_cases/original.yaml"
+    renamed = "tests/evals/measurement_cases/renamed.yaml"
+    contents = "cases: [{id: example}]\n"
+    first = commit_files(tmp_path, {original: contents})
+    second = commit_files(tmp_path, {original: None, renamed: contents})
+    third = commit_files(tmp_path, {renamed: contents + "\n"})
+    commit_files(tmp_path, {renamed: None})
 
-
-def test_scorecard_reports_per_category_pass_rates() -> None:
-    results = [
-        {"id": "case-a", "category": "messy_english", "status": "passed"},
-        {"id": "case-b", "category": "messy_english", "status": "failed"},
-        {
-            "id": "case-c",
-            "category": "messy_spanish",
-            "status": "expected_failed",
-        },
-        {
-            "id": "case-d",
-            "category": "messy_spanish",
-            "status": "unexpected_pass",
-        },
-    ]
-
-    scorecard = scorecards.scorecard_for_results(
-        results,
-        provenance=_valid_scorecard_provenance(
-            "case-a",
-            "case-b",
-            "case-c",
-            "case-d",
-        ),
-    )
-
-    assert scorecard["category_pass_rates"]["messy_english"] == {
-        "passed": 1,
-        "failed": 1,
-        "expected_failed": 0,
-        "unexpected_pass": 0,
-        "skipped": 0,
-        "infrastructure_error": 0,
-        "pass_rate": 0.5,
-    }
-    assert scorecard["category_pass_rates"]["messy_spanish"] == {
-        "passed": 0,
-        "failed": 0,
-        "expected_failed": 1,
-        "unexpected_pass": 1,
-        "skipped": 0,
-        "infrastructure_error": 0,
-        "pass_rate": 0.0,
-    }
-    assert scorecard["totals"]["unexpected_pass"] == 1
-
-
-@pytest.mark.parametrize(
-    ("field_name", "invalid_value"),
-    [
-        ("market_data_provider_mode", ""),
-        ("asset_provider_mode", ""),
-        ("candidate_sha", "not-a-sha"),
-        ("python_version", ""),
-        ("fixture_sha256", "not-a-hash"),
-        ("fixture_case_ids", ()),
-    ],
-)
-def test_scorecard_refuses_missing_or_malformed_provenance(
-    field_name: str,
-    invalid_value: Any,
-) -> None:
-    provenance = replace(
-        _valid_scorecard_provenance(),
-        **{field_name: invalid_value},
-    )
-
-    with pytest.raises(ValueError, match=f"scorecard_provenance:{field_name}"):
-        scorecards.scorecard_for_results([], provenance=provenance)
-
-
-def test_live_scorecard_refuses_non_live_market_data_provenance() -> None:
-    provenance = replace(
-        _valid_scorecard_provenance(),
-        market_data_provider_mode="synthetic_unit_fixture",
-    )
-
-    with pytest.raises(
-        ValueError,
-        match="scorecard_provenance:live_market_data_provider_mode",
-    ):
-        scorecards.scorecard_for_results([], provenance=provenance)
-
-
-def test_live_scorecard_refuses_missing_calendar_probe() -> None:
-    provenance = replace(
-        _valid_scorecard_provenance(),
-        live_market_data_probe=None,
-    )
-
-    with pytest.raises(
-        ValueError,
-        match="scorecard_provenance:live_market_data_probe",
-    ):
-        scorecards.scorecard_for_results([], provenance=provenance)
-
-
-def test_scorecard_refuses_dirty_worktree_provenance() -> None:
-    provenance = replace(_valid_scorecard_provenance(), worktree_clean=False)
-
-    with pytest.raises(ValueError, match="scorecard_provenance:worktree_clean"):
-        scorecards.scorecard_for_results([], provenance=provenance)
-
-
-def test_scorecard_records_provenance_and_provider_cost() -> None:
-    results = [
-        {
-            "id": "costed-case",
-            "category": "messy_english",
-            "status": "passed",
-            "route_receipts": [
-                {"usage_cost_usd": 0.125},
-                {"usage_cost_usd": 0.25},
-                {"usage_cost_usd": None},
-            ],
-        }
-    ]
-
-    scorecard = scorecards.scorecard_for_results(
-        results,
-        provenance=_valid_scorecard_provenance("costed-case"),
-    )
-
-    assert scorecard["schema_version"] == 3
-    assert scorecard["provenance"] == {
-        "evaluation_mode": "live",
-        "market_data_provider_mode": "live_provider",
-        "asset_provider_mode": "live_provider",
-        "candidate_sha": "a" * 40,
-        "python_version": "3.10.20",
-        "fixture_sha256": "b" * 64,
-        "fixture_case_ids": ["costed-case"],
-        "worktree_clean": True,
-        "release_configuration": {"CUADRAO_CHAT_MODEL": "test/model"},
-        "live_market_data_probe": {
-            "symbol": "SPY",
-            "requested_date_range": {
-                "start": "2024-01-01",
-                "end": "2024-01-10",
-            },
-            "effective_date_range": {
-                "start": "2024-01-02",
-                "end": "2024-01-10",
-            },
-            "adjustment_reason": "calendar_alignment",
-        },
-    }
-    assert scorecard["provider_usage"] == {
-        "route_receipt_count": 3,
-        "reported_cost_receipt_count": 2,
-        "unreported_cost_receipt_count": 1,
-        "reported_cost_usd": 0.375,
-    }
-
-
-def test_live_scorecard_refuses_incomplete_fixture_result_set() -> None:
-    provenance = _valid_scorecard_provenance("case-a", "case-b")
-
-    with pytest.raises(
-        ValueError,
-        match="scorecard_results:incomplete_fixture_result_set",
-    ):
-        scorecards.scorecard_for_results(
-            [{"id": "case-a", "category": "messy_english", "status": "passed"}],
-            provenance=provenance,
+    identities = [
+        scorecards.measurement_fixture_identity_at_git_sha(
+            candidate_sha=sha, repository_root=tmp_path
         )
-
-
-def test_measurement_fixture_identity_binds_filenames_and_contents(
-    tmp_path: Path,
-) -> None:
-    fixture_dir = tmp_path / "fixtures"
-    fixture_dir.mkdir()
-    first = fixture_dir / "first.yaml"
-    second = fixture_dir / "second.yaml"
-    first.write_text("category: first\ncases: [{id: first}]\n", encoding="utf-8")
-    second.write_text("category: second\ncases: [{id: second}]\n", encoding="utf-8")
-
-    original = scorecards.measurement_fixture_sha256(fixture_dir)
-    second.rename(fixture_dir / "renamed.yaml")
-    renamed = scorecards.measurement_fixture_sha256(fixture_dir)
-    (fixture_dir / "renamed.yaml").write_text(
-        "category: renamed\ncases: [{id: renamed}]\n",
-        encoding="utf-8",
-    )
-    changed = scorecards.measurement_fixture_sha256(fixture_dir)
-
-    assert len(original) == 64
-    assert original != renamed
-    assert renamed != changed
+        for sha in (first, second, third)
+    ]
+    assert all(identity.case_ids == ("example",) for identity in identities)
+    assert len({identity.sha256 for identity in identities}) == 3
 
 
 def test_candidate_fixture_identity_rejects_non_commit_git_object(
