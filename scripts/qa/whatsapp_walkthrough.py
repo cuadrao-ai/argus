@@ -110,7 +110,7 @@ class ToLocalMedia(httpx.AsyncHTTPTransport):
 
 @contextmanager
 def media_server(
-    media: dict[str, bytes], downloads: list[str], replies: list[str]
+    media: dict[str, bytes], downloads: list[str], replies: list[str], read_ids: list[str]
 ) -> Iterator[ToLocalMedia]:
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, format: str, *args: object) -> None:
@@ -157,7 +157,10 @@ def media_server(
                 self.send_error(403)
                 return
             body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
-            replies.append(body["text"]["body"])
+            if body.get("status") == "read":
+                read_ids.append(body["message_id"])
+            else:
+                replies.append(body["text"]["body"])
             self.respond(b'{"messages":[{"id":"wamid.LOCAL"}]}', "application/json")
 
     with ThreadingHTTPServer(("127.0.0.1", 0), Handler) as server:

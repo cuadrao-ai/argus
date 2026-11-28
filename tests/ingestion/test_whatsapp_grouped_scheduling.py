@@ -86,10 +86,6 @@ async def test_document_upkeep_sends_a_due_group_without_webhook_credentials(
     assert not settings.intake_ready
     world.clock.now += timedelta(seconds=60)
     await asyncio.to_thread(tick)
-    assert sent == []
-
-    world.clock.now += timedelta(seconds=60)
-    await asyncio.to_thread(tick)
     [message] = sent
     assert message["to"] == cases.ALICE_PHONE
     assert all(f"factura_{index}.png" in message["text"]["body"] for index in range(2))

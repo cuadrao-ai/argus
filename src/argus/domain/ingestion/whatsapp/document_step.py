@@ -15,13 +15,16 @@ from argus.domain.ingestion.whatsapp.config import (
 )
 from argus.domain.ingestion.whatsapp.identity import WhatsAppKeys
 from argus.domain.ingestion.whatsapp.replies import CloudApiTransport
-from argus.domain.ingestion.whatsapp.reply_groups import SEND_TIMEOUT, ReplyGroupCodec
+from argus.domain.ingestion.whatsapp.reply_groups import (
+    DUE_EVERY,
+    SEND_TIMEOUT,
+    ReplyGroupCodec,
+)
 from argus.domain.ingestion.whatsapp.reply_worker import (
     FailureReplyWorker,
     ReplyGroupStore,
 )
 
-DUE_EVERY = timedelta(minutes=1)
 CLEANUP_EVERY = timedelta(hours=1)
 
 

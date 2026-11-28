@@ -7,7 +7,7 @@ import logging
 import os
 import subprocess
 from collections import Counter
-from collections.abc import Awaitable, Callable, Iterator
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
@@ -19,6 +19,7 @@ from uuid import uuid4
 
 import httpx
 import pytest
+import pytest_asyncio
 from argus.api import business_spaces, documents, financial_accounts, ingestion, whatsapp
 from argus.api.main import app
 from argus.domain.business.access import PostgresAccessStore
@@ -33,13 +34,20 @@ from argus.domain.ingestion.documents.service import (
 )
 from argus.domain.ingestion.email_intake.budget import business_day, next_business_day
 from argus.domain.ingestion.secrets import SecretBox
+from argus.domain.ingestion.whatsapp import document_step
 from argus.domain.ingestion.whatsapp.held import HeldFile, held_files
-from argus.domain.ingestion.whatsapp.replies import compose_reply, review_url
+from argus.domain.ingestion.whatsapp.media import FetchedMedia
+from argus.domain.ingestion.whatsapp.reply_groups_postgres import PostgresReplyGroups
 from faker import Faker
 from loguru import logger
 from psycopg_pool import ConnectionPool
 
-from scripts.qa.whatsapp_walkthrough import Receipt, local_targets, media_server
+from scripts.qa.whatsapp_walkthrough import (
+    Receipt,
+    ToLocalMedia,
+    local_targets,
+    media_server,
+)
 from tests import test_financial_accounts_postgres as accounts
 from tests.business_reading_support import ROUTE, turn_reading
 from tests.document_extractor_support import admit
@@ -52,7 +60,17 @@ from workflows.read_resume import ReadResume
 
 LINK = "/api/v1/whatsapp/link"
 RECEIPTS = "/api/v1/business/receipts"
-C_NAME = "Taller privado de prueba"
+BUSINESS_NAMES = {
+    "A": "Colmado Doña Rosa",
+    "B": "Taller Hermanos Peña",
+    "D": "Farmacia San Miguel",
+    "E": "Ferretería El Progreso",
+    "F": "Cafetería La Esquina",
+    "G": "Repuestos Don Julio",
+    "H": "Papelería Central",
+    "I": "Salón Caribe",
+    "J": "Lavandería Brisa",
+}
 APP_ORIGIN = "https://app.example.test"
 
 
@@ -63,7 +81,9 @@ def reads_finish_inside_the_request() -> None:
 
 class Clock:
     def __init__(self) -> None:
-        self.now = datetime.now(timezone.utc)
+        self.now = datetime.now(timezone.utc).replace(
+            hour=21, minute=20, second=0, microsecond=0
+        )
 
     def __call__(self) -> datetime:
         return self.now
@@ -80,21 +100,31 @@ class WalkthroughDesk:
     spaces: dict[str, str]
     grants: dict[str, str]
     rnc: dict[str, str]
+    private_business_name: str
 
 
 @pytest.fixture
-def desk(monkeypatch: pytest.MonkeyPatch) -> Iterator[WalkthroughDesk]:
+def read_limit() -> int:
+    return 3
+
+
+@pytest.fixture
+def desk(
+    monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest, read_limit: int
+) -> Iterator[WalkthroughDesk]:
     dsn, url = local_targets()
+    businesses = (*getattr(request, "param", ("A", "B")), "C")
     for key, value in {
         **ENV,
         "CUADRAO_DOCUMENT_EXTRACTION_ENABLED": "true",
+        "CUADRAO_INGESTION_SECRET_KEY": ENV["ARGUS_INGESTION_SECRET_KEY"],
         "CUADRAO_WHATSAPP_OUTBOUND_ENABLED": "true",
         "CUADRAO_APP_ORIGIN": APP_ORIGIN,
         "CUADRAO_WHATSAPP_SENDER_KEY": str(uuid4()),
         "CUADRAO_PUBLIC_ACCOUNT_ACCESS_ENABLED": "true",
         "CUADRAO_FINANCIAL_ACCOUNTS_ENABLED": "true",
         "CUADRAO_INGESTION_ENABLED": "true",
-        "CUADRAO_BUSINESS_READS_PER_DAY": "3",
+        "CUADRAO_BUSINESS_READS_PER_DAY": str(read_limit),
         "CUADRAO_MOCK_AUTH": "false",
         "NEXT_PUBLIC_MOCK_AUTH": "false",
         "POSTHOG_PROJECT_TOKEN": "",
@@ -109,7 +139,7 @@ def desk(monkeypatch: pytest.MonkeyPatch) -> Iterator[WalkthroughDesk]:
     clock = Clock()
     with ConnectionPool(dsn, min_size=0, max_size=8) as pool:
         with pool.connection() as db:
-            users = accounts._create_users(db, ("A", False), ("B", False), ("C", False))
+            users = accounts._create_users(db, *((key, False) for key in businesses))
         try:
             email = f"ana-{uuid4().hex}@example.test"
             password = uuid4().hex
@@ -132,19 +162,24 @@ def desk(monkeypatch: pytest.MonkeyPatch) -> Iterator[WalkthroughDesk]:
 
             service = postgres_documents_service(pool, objects)
             service.hub.clock = clock
-            service.hub.box = SecretBox(b"q" * 32)
+            service.hub.box = SecretBox.from_env()
             spaces, grants = {}, {}
             faker = Faker()
+            private_business_name = faker.lexify("????????????")
             rnc = {
                 key: faker.unique.numerify("1########")
-                for key in ("A", "B", "C", "X", "vendor")
+                for key in (*businesses, "X", "vendor")
             }
-            for key in ("A", "B", "C"):
+            for key in businesses:
                 with pool.connection() as db:
                     space = spaces[key] = owned_space(db, users[key])
                     db.execute(
                         "update public.spaces set name=%s, business_rnc=%s, business_tax_id_type='rnc' where id=%s",
-                        (C_NAME if key == "C" else f"Negocio {key}", rnc[key], space),
+                        (
+                            private_business_name if key == "C" else BUSINESS_NAMES[key],
+                            rnc[key],
+                            space,
+                        ),
                     )
                     if key != "C":
                         grants[key] = db.execute(
@@ -180,6 +215,7 @@ def desk(monkeypatch: pytest.MonkeyPatch) -> Iterator[WalkthroughDesk]:
                 spaces=spaces,
                 grants=grants,
                 rnc=rnc,
+                private_business_name=private_business_name,
             )
         finally:
             with pool.connection() as db:
@@ -193,7 +229,11 @@ class SignedForward:
         self, desk: WalkthroughDesk, client: httpx.AsyncClient, replies: list[str]
     ) -> None:
         self.desk, self.client, self.replies = desk, client, replies
+        self.read_ids: list[str] = []
         self.reads = Counter()
+        self.upkeep = document_step.FailureReplyUpkeep(
+            PostgresReplyGroups(desk.pool), clock=desk.clock
+        )
         self.media, self.receipts = {}, {}
         self.responses: list[str] = []
         self.proof: list[str] = []
@@ -227,8 +267,12 @@ class SignedForward:
         assert linked["linked"]
         assert {b["space_id"]: b["tax_id"] for b in linked["receiving_businesses"]} == {
             self.desk.spaces[key]: {"type": "rnc", "value": self.desk.rnc[key]}
-            for key in ("A", "B")
+            for key in self.desk.grants
         }
+
+    async def sweep(self, seconds: int = 60) -> None:
+        self.desk.clock.now += timedelta(seconds=seconds)
+        await asyncio.to_thread(self.upkeep.send_due)
 
     async def provider(
         self,
@@ -367,22 +411,29 @@ class SignedForward:
         ]
 
 
-@pytest.mark.asyncio
-async def test_signed_founder_walkthrough(
-    desk: WalkthroughDesk,
-    monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
-    record_property,
-) -> None:
+@pytest_asyncio.fixture
+async def signed(
+    desk: WalkthroughDesk, monkeypatch: pytest.MonkeyPatch
+) -> AsyncIterator[SignedForward]:
     replies, downloads = [], []
     async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app), base_url="http://local"
+        transport=httpx.ASGITransport(app=app, raise_app_exceptions=False),
+        base_url="http://local",
     ) as client:
         w = SignedForward(desk, client, replies)
-        with media_server(w.media, downloads, replies) as transport:
+        with media_server(w.media, downloads, replies, w.read_ids) as transport:
             async with httpx.AsyncClient(transport=transport, trust_env=False) as media:
                 monkeypatch.setattr(
                     whatsapp, "httpx", SimpleNamespace(AsyncClient=lambda: media)
+                )
+                monkeypatch.setattr(
+                    document_step,
+                    "httpx",
+                    SimpleNamespace(
+                        AsyncClient=lambda: httpx.AsyncClient(
+                            transport=ToLocalMedia(transport.port), trust_env=False
+                        )
+                    ),
                 )
                 monkeypatch.setattr(
                     extractor.DocumentExtractor,
@@ -395,16 +446,32 @@ async def test_signed_founder_walkthrough(
                 monkeypatch.setattr(whatsapp, "_runtime", None)
                 whatsapp.start_whatsapp(app)
                 await w.link()
-                captured = StringIO()
-                sink = logger.add(captured, format="{message} {extra}")
-                try:
-                    with caplog.at_level(logging.INFO):
-                        await run_cases(w)
-                finally:
-                    logger.remove(sink)
+                [w.link_reply] = replies
+                replies.clear()
+                yield w
     assert Counter(downloads) == Counter(w.media.keys())
-    public = "\n".join([*w.responses, *replies, captured.getvalue(), caplog.text])
-    for private in (C_NAME, desk.spaces["C"]):
+
+
+@pytest.mark.asyncio
+async def test_signed_founder_walkthrough(
+    signed: SignedForward,
+    caplog: pytest.LogCaptureFixture,
+    record_property,
+) -> None:
+    w, desk = signed, signed.desk
+    captured = StringIO()
+    sink = logger.add(captured, format="{message} {extra}")
+    try:
+        with caplog.at_level(logging.INFO):
+            await run_cases(w)
+    finally:
+        logger.remove(sink)
+    assert (
+        w.link_reply
+        == "Listo, este WhatsApp quedó conectado. Envía aquí la foto o el PDF de tus facturas."
+    )
+    public = "\n".join([*w.responses, *w.replies, captured.getvalue(), caplog.text])
+    for private in (desk.private_business_name, desk.spaces["C"]):
         assert (
             private not in public
         ), "An inaccessible Business appeared in a response or log"
@@ -424,8 +491,18 @@ async def run_cases(w: SignedForward) -> None:
         Receipt("Compra-3", r["vendor"], r["C"]),
         Receipt("Compra-4", r["vendor"], r["X"]),
     ]
-    for cid in await w.forward(*sales, *purchases, *unplaced):
+    connections = await w.forward(*sales, *purchases, *unplaced)
+    assert w.read_ids == [f"wamid.W9.{100000000000000+n}" for n in range(7)]
+    assert w.replies == []
+    for cid in connections:
         assert await w.read(cid) == "prepared"
+    await w.sweep()
+    assert w.replies == [
+        "Recibimos 7 facturas, gracias.\nYa están en la Bandeja:\n"
+        "• Colmado Doña Rosa: 2\n• Taller Hermanos Peña: 2\n"
+        "3 quedaron sin negocio. Te esperan en Cuadrao."
+    ]
+    w.proof.append("1 | 7 read receipts after save | one exact reply after 1 minute")
     assert w.reads == Counter(receipt.name for receipt in [*sales, *purchases, *unplaced])
     for key, expected, kind in (("A", sales, "venta"), ("B", purchases, "recibo")):
         rows = await w.inbox(key)
@@ -453,13 +530,13 @@ async def run_cases(w: SignedForward) -> None:
     original = (await w.inbox("A"))[sale.name + ".png"]["id"]
     [duplicate] = await w.forward(sale)
     assert duplicate == original, "Resending the file should refer to A's existing sale"
-    assert w.replies[-1] == compose_reply(
-        "duplicate", language="es-419", link=review_url(APP_ORIGIN, original)
-    )
+    assert len(w.read_ids) == 7 and len(w.replies) == 1
+    await w.sweep()
+    assert w.replies[1:] == ["Esta ya la teníamos, gracias. No se guardó dos veces."]
     assert await w.read(duplicate) is None
     assert w.row_counts() == before
     w.evidence(
-        "6 | duplicate links to A’s original sale | new drafts=0 new held rows=0",
+        "6 | duplicate acknowledged once, without a link | new drafts=0 new held rows=0",
         (7, 2, 2, 3),
     )
 
@@ -535,3 +612,286 @@ async def run_cases(w: SignedForward) -> None:
     )
     assert search.returncode == 1, search.stdout.decode() or search.stderr.decode()
     w.proof.append("7 | default lookup matches=0 | Business-pin triggers=0")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("read_limit", [10])
+async def test_mixed_ten_share_one_reply(signed: SignedForward) -> None:
+    w, r = signed, signed.desk.rnc
+    sales = [Receipt(f"Venta-{n}", r["A"], None) for n in range(4)]
+    purchases = [Receipt(f"Compra-{n}", r["vendor"], r["B"]) for n in range(2)]
+    saved = await w.forward(*sales, *purchases, Receipt("Sin-RNC", r["vendor"], None))
+    for cid in saved:
+        assert await w.read(cid) == "prepared"
+    await w.forward(sales[0])
+    for n in range(2):
+        await w.post(
+            fixture(
+                "image_message.json",
+                id=f"wamid.INVALID{n}",
+                image={"id": f"99900000000000{n}", "mime_type": "image/gif"},
+            )
+        )
+    assert len(w.read_ids) == 7
+    assert w.replies == []
+    await w.sweep()
+    assert w.replies == [
+        "Recibimos 10 facturas, gracias.\nYa están en la Bandeja:\n"
+        "• Colmado Doña Rosa: 4\n• Taller Hermanos Peña: 2\n"
+        "1 quedó sin negocio. Te espera en Cuadrao.\n1 ya la teníamos.\n"
+        "Disculpa, no pudimos recibir 2 archivos:\n• foto enviada a las 5:20 p. m.\n"
+        "• foto enviada a las 5:20 p. m.\nEnvíalos como foto o PDF."
+    ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("desk", [tuple(BUSINESS_NAMES)], indirect=True)
+@pytest.mark.parametrize("read_limit", [40])
+async def test_forty_files_in_nine_businesses_name_five(signed: SignedForward) -> None:
+    w, r = signed, signed.desk.rnc
+    receipts = [
+        Receipt(f"Venta-{key}-{n}", r[key], None)
+        for key, count in zip(BUSINESS_NAMES, (8, 6, 5, 5, 4, 3, 3, 2, 2), strict=True)
+        for n in range(count)
+    ]
+    receipts.extend(Receipt(f"Sin-{n}", r["vendor"], None) for n in range(2))
+    for cid in await w.forward(*receipts):
+        assert await w.read(cid) == "prepared"
+    assert len(w.read_ids) == 40
+    assert w.replies == []
+    await w.sweep()
+    assert w.replies == [
+        "Recibimos 40 facturas, gracias.\nYa están en la Bandeja:\n"
+        "• Colmado Doña Rosa: 8\n• Taller Hermanos Peña: 6\n• Farmacia San Miguel: 5\n"
+        "• Ferretería El Progreso: 5\n• Cafetería La Esquina: 4\n"
+        "y 4 negocios más: 10 facturas\n2 quedaron sin negocio. Te esperan en Cuadrao."
+    ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("read_limit", [12])
+async def test_slow_reads_close_at_three_minutes_without_followup(
+    signed: SignedForward,
+) -> None:
+    w, r = signed, signed.desk.rnc
+    receipts = [
+        Receipt(f"Venta-{key}-{n}", r[key], None)
+        for key, count in (("A", 6), ("B", 4))
+        for n in range(count)
+    ]
+    receipts.extend(Receipt(f"Pendiente-{n}", r["A"], None) for n in range(2))
+    connections = await w.forward(*receipts)
+    for cid in connections[:-2]:
+        assert await w.read(cid) == "prepared"
+    for _ in range(2):
+        await w.sweep()
+        assert w.replies == []
+    await w.sweep()
+    expected = [
+        "Recibimos 12 facturas, gracias.\nYa están en la Bandeja:\n"
+        "• Colmado Doña Rosa: 6\n• Taller Hermanos Peña: 4\n"
+        "Las demás se están leyendo. Puedes seguirlas en Cuadrao."
+    ]
+    assert w.replies == expected
+    for cid in connections[-2:]:
+        assert await w.read(cid) == "prepared"
+    await w.sweep()
+    assert w.replies == expected
+
+
+@pytest.mark.asyncio
+async def test_failed_capture_commit_sends_no_status_or_reply(
+    signed: SignedForward, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    w = signed
+    destination = whatsapp.whatsapp_runtime().intake.destination
+    prepare = destination.prepare
+    deferred = []
+
+    def fail_at_commit(connection, *args, **kwargs):
+        result = prepare(connection, *args, **kwargs)
+        connection.execute(
+            "create temp table failed_commit (id int primary key, parent int "
+            "references failed_commit(id) deferrable initially deferred) on commit drop"
+        )
+        connection.execute("insert into failed_commit values (1, 2)")
+        deferred.append(True)
+        return result
+
+    monkeypatch.setattr(destination, "prepare", fail_at_commit)
+    key = "100000000000000"
+    w.media[key] = Receipt("Sin-commit", w.desk.rnc["A"], None).png()
+    message_id = "wamid.ROLLBACK"
+    body = fixture(
+        "image_message.json", id=message_id, image={"id": key, "mime_type": "image/png"}
+    )
+    raw = encode(body, w.desk.clock.now)
+    errors = []
+    sink = logger.add(
+        lambda message: errors.append(message.record["extra"].get("failure_mode"))
+    )
+    try:
+        response = await w.client.post(
+            whatsapp.WEBHOOK_PATH, content=raw, headers={"X-Hub-Signature-256": sign(raw)}
+        )
+    finally:
+        logger.remove(sink)
+    assert response.status_code == 503 and "ForeignKeyViolation" in errors
+    assert deferred == [True]
+    intake = whatsapp.whatsapp_runtime().intake
+    inbound = intake.store.inbound(intake.keys.message(message_id))
+    assert inbound.status == "received" and inbound.connection_id is None
+    await w.sweep(180)
+    assert w.read_ids == w.replies == []
+
+
+@pytest.mark.asyncio
+async def test_daily_failure_cap_keeps_saved_file_counts(
+    signed: SignedForward,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    w = signed
+    monkeypatch.setenv("CUADRAO_WHATSAPP_REPLY_DAILY_LIMIT", "2")
+
+    async def unsupported(n: int) -> None:
+        await w.post(
+            fixture(
+                "image_message.json",
+                id=f"wamid.INVALID{n}",
+                image={"id": f"99900000000000{n}", "mime_type": "image/gif"},
+            )
+        )
+
+    await unsupported(1)
+    await w.sweep()
+    assert w.replies == [
+        "Disculpa, no pudimos recibir este archivo.\n• foto enviada a las 5:20 p. m.\n"
+        "Envíalo como foto o PDF."
+    ]
+    await unsupported(2)
+    await w.sweep()
+    assert w.replies[1:] == [
+        "Por hoy no avisaremos más sobre archivos que no podamos recibir. Las facturas válidas siguen entrando."
+    ]
+    await unsupported(3)
+    [cid] = await w.forward(Receipt("Cada-válida", w.desk.rnc["A"], None))
+    assert await w.read(cid) == "prepared"
+    await w.sweep()
+    assert w.replies[2:] == [
+        "Recibimos 2 facturas, gracias.\nYa está en la Bandeja:\n• Colmado Doña Rosa: 1"
+    ]
+    await unsupported(4)
+    await w.sweep()
+    assert len(w.replies) == 3
+
+
+@pytest.mark.asyncio
+async def test_window_elapsed_before_worker_runs(signed: SignedForward) -> None:
+    w = signed
+    [cid] = await w.forward(Receipt("Con-ventana", w.desk.rnc["A"], None))
+    assert await w.read(cid) == "prepared"
+    assert len(w.read_ids) == 1
+    await w.sweep(24 * 60 * 60)
+    assert w.replies == []
+
+
+@pytest.mark.asyncio
+async def test_grant_revoked_before_reply_hides_business(signed: SignedForward) -> None:
+    w, d = signed, signed.desk
+    [cid] = await w.forward(Receipt("Revocado", d.rnc["vendor"], d.rnc["B"]))
+    assert await w.read(cid) == "prepared"
+    PostgresAccessStore(d.pool).revoke_grant(d.spaces["B"], d.users["B"], d.grants["B"])
+    await w.sweep()
+    assert w.replies == [
+        "Recibimos tu factura, gracias.\n1 quedó sin negocio. Te espera en Cuadrao."
+    ]
+
+
+@pytest.mark.asyncio
+async def test_text_audio_and_video_get_one_daily_reply(signed: SignedForward) -> None:
+    w = signed
+    await w.post(fixture("text_message.json", text="Buenas"))
+    w.desk.clock.now += timedelta(seconds=60)
+    await w.post(fixture("audio_message.json"))
+    await w.sweep(0)
+    assert w.replies == []
+    await w.post(
+        fixture(
+            "audio_message.json",
+            id="wamid.VIDEO",
+            type="video",
+            video={"id": "700000000000003"},
+        )
+    )
+    assert w.read_ids == w.replies == []
+    await w.sweep()
+    greeting = "Hola. Por aquí no respondemos mensajes, solo recibimos facturas. Envía aquí la foto o el PDF de tus facturas."
+    assert w.replies == [greeting]
+    await w.post(fixture("audio_message.json", id="wamid.GUIDANCE3"))
+    await w.sweep()
+    assert w.replies == [greeting]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("read_limit", [1])
+async def test_three_files_wait_for_tomorrows_read_budget(signed: SignedForward) -> None:
+    w, d = signed, signed.desk
+    PostgresAccessStore(d.pool).revoke_grant(d.spaces["B"], d.users["B"], d.grants["B"])
+    [first] = await w.forward(Receipt("Primera", d.rnc["A"], None))
+    assert await w.read(first) == "prepared"
+    await w.sweep()
+    assert w.replies == [
+        "Recibimos tu factura, gracias.\nYa está en la Bandeja:\n• Colmado Doña Rosa: 1"
+    ]
+    for cid in await w.forward(
+        *(Receipt(f"Mañana-{n}", d.rnc["A"], None) for n in range(3))
+    ):
+        assert await w.read(cid) == "business_read_budget_day"
+    assert len(w.read_ids) == 4
+    await w.sweep()
+    assert w.replies[1:] == [
+        "Recibimos 3 facturas, gracias.\nYa están en la Bandeja:\n• Colmado Doña Rosa: 3\n"
+        "Hoy llegamos al límite de lecturas. 3 se leerán mañana y no hace falta enviarlas de nuevo."
+    ]
+
+
+@pytest.mark.asyncio
+async def test_read_finishes_during_next_files_download(
+    signed: SignedForward, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    w = signed
+    [first] = await w.forward(Receipt("Venta-primera", w.desk.rnc["A"], None))
+    await w.sweep(60)
+    assert w.replies == []
+
+    started, release = asyncio.Event(), asyncio.Event()
+    media = whatsapp.whatsapp_runtime().intake.media
+    fetch = media.fetch
+
+    async def delayed(media_id: str) -> FetchedMedia:
+        started.set()
+        await release.wait()
+        return await fetch(media_id)
+
+    monkeypatch.setattr(media, "fetch", delayed)
+    w.desk.clock.now += timedelta(seconds=30)
+    second = asyncio.create_task(
+        w.forward(Receipt("Venta-segunda", w.desk.rnc["A"], None))
+    )
+    try:
+        await asyncio.wait_for(started.wait(), timeout=5)
+        w.desk.clock.now += timedelta(seconds=20)
+        assert await w.read(first) == "prepared"
+        await w.sweep(10)
+        assert w.replies == []
+    finally:
+        release.set()
+        [pending] = await second
+    assert await w.read(pending) == "prepared"
+    await w.sweep(60)
+    expected = [
+        "Recibimos 2 facturas, gracias.\nYa están en la Bandeja:\n• Colmado Doña Rosa: 2"
+    ]
+    assert w.replies == expected
+    await w.sweep(60)
+    assert w.replies == expected

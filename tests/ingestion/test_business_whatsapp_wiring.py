@@ -1,4 +1,4 @@
-"""Linked text gets the ordinary webhook reply."""
+"""The webhook queues linked text for the sender’s daily guidance."""
 
 from datetime import datetime, timezone
 from types import SimpleNamespace
@@ -12,7 +12,6 @@ from argus.domain.business.access import InMemoryAccessStore
 from argus.domain.ingestion.secrets import SecretBox
 from argus.domain.ingestion.whatsapp.config import load_whatsapp_settings
 from argus.domain.ingestion.whatsapp.payload import Delivery, TextMessage
-from argus.domain.ingestion.whatsapp.replies import compose_reply
 from argus.domain.ingestion.whatsapp.senders import SenderBusinesses
 from argus.domain.ingestion.whatsapp.store import InMemoryWhatsAppStore
 
@@ -21,7 +20,7 @@ from tests.ingestion.whatsapp_support import ALICE_PHONE, ENV
 
 
 @pytest.mark.asyncio
-async def test_linked_text_uses_the_ordinary_webhook_reply(
+async def test_linked_text_queues_guidance_without_an_instant_reply(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from json import loads
@@ -76,9 +75,8 @@ async def test_linked_text_uses_the_ordinary_webhook_reply(
             store.inbound(keys.message(message.id)).error_code
             == "whatsapp_receipt_missing"
         )
-    assert replies == [
-        compose_reply(
-            "whatsapp_receipt_missing", language="en", link="https://app.test/biz"
-        )
-    ]
+    assert replies == []
+    [pending] = store.reply_failures
+    assert pending.sample["key"] == keys.message(message.id).hex()
+    assert pending.sample["kind"] == "guidance"
     pool.connection.assert_not_called()

@@ -380,11 +380,11 @@ def _seed_transport(db, old, space, cid, grant):
         (sender, old),
     )
     db.execute(
-        "insert into public.whatsapp_reply_groups(sender_hash,owner_id,link_id,failed_count,samples,last_sent_at,send_after) values(%s,%s,%s,1,'[\"private sample\"]',now(),now())",
+        "insert into public.whatsapp_reply_groups(sender_hash,owner_id,link_id,member_count,samples,last_sent_at,send_after,last_arrival) values(%s,%s,%s,1,'[\"private sample\"]',now(),now(),now())",
         (sender, old, link),
     )
     db.execute(
-        "insert into public.whatsapp_reply_attempts(sender_hash,token,owner_id,link_id,day,failed_count,samples,last_sent_at,expires_at,retries) values(%s,%s,%s,%s,current_date,1,'[\"private sample\"]',now(),now()+interval '1 hour',0)",
+        "insert into public.whatsapp_reply_attempts(sender_hash,token,owner_id,link_id,day,member_count,samples,last_sent_at,expires_at,retries) values(%s,%s,%s,%s,current_date,1,'[\"private sample\"]',now(),now()+interval '1 hour',0)",
         (sender, uuid4(), old, link),
     )
     return dict(

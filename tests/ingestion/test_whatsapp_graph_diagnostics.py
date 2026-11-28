@@ -568,7 +568,7 @@ async def test_acknowledgement_log_classifies_provider_and_transport_failures(
     world.intake.transport = Refused("401:190")
     await world.deliver(cases.image("700000000000302", "wamid.ACK-PROVIDER"))
 
-    world.graph.media["700000000000303"] = Media(RECEIPT_PNG, "image/png")
+    world.graph.media["700000000000303"] = Media(RECEIPT_PNG + b"\0", "image/png")
     world.intake.transport = Refused("transport", outcome_unknown=True)
     await world.deliver(cases.image("700000000000303", "wamid.ACK-TRANSPORT"))
 

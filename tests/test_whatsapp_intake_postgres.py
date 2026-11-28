@@ -330,7 +330,7 @@ async def test_link_language_wins_over_the_default_english_profile(pool, users) 
     await world.link(world.alice, cases.ALICE_PHONE, "es-419")
     assert world.transport.bodies() == [
         "Listo, este WhatsApp quedó conectado. "
-        "Envía aquí la foto o el PDF de tus recibos."
+        "Envía aquí la foto o el PDF de tus facturas."
     ]
     with pool.connection() as connection:
         [stored] = connection.execute(
@@ -419,11 +419,11 @@ async def test_failed_files_wait_then_send_one_group(pool, users, count):
     if count == 1:
         assert world.transport.sent[0]["context"] == {"message_id": "wamid.GROUP-0"}
         assert world.transport.bodies() == [
-            "No pudimos leer este archivo. Envíalo como foto o PDF."
+            "Disculpa, no pudimos recibir este archivo.\n• factura_0.png\nEnvíalo como foto o PDF."
         ]
     else:
         assert world.transport.bodies()[0] == (
-            f"No pudimos leer {count} archivos:\n• factura_0.png\n• factura_1.png\n• factura_2.png\n"
+            f"Disculpa, no pudimos recibir {count} archivos:\n• factura_0.png\n• factura_1.png\n• factura_2.png\n"
             f"• y {count-3} más\nEnvíalos como foto o PDF."
         )
     assert _counts(pool, world) == [(1, 0)]
@@ -435,24 +435,28 @@ async def test_each_failure_resets_wait_and_restart_keeps_group(pool, users):
 
     world = await _linked(pool, users)
     await _failed(world, 0)
-    world.clock.now += timedelta(seconds=119)
+    world.clock.now += timedelta(seconds=59)
     await _failed(world, 1)
     world.clock.now += timedelta(seconds=1)
     restarted = _worker(world, store=PostgresReplyGroups(pool))
     assert not await restarted.run_once()
-    world.clock.now += timedelta(seconds=119)
+    world.clock.now += timedelta(seconds=59)
     assert await restarted.run_once()
     assert len(world.transport.sent) == 1
     assert "2 archivos" in world.transport.bodies()[0]
 
 
 @pytest.mark.asyncio
-async def test_two_workers_send_one_group_and_valid_receipt_stays_immediate(pool, users):
+async def test_two_workers_send_one_mixed_group_after_the_immediate_read_receipt(
+    pool, users
+):
     world = await _linked(pool, users)
     await _failed(world, 0)
     world.graph.media["700000000000991"] = Media(RECEIPT_PNG, "image/png")
     await world.deliver(cases.image("700000000000991", "wamid.VALID"))
-    assert len(world.transport.sent) == 1
+    assert world.transport.sent == [
+        {"messaging_product": "whatsapp", "status": "read", "message_id": "wamid.VALID"}
+    ]
     assert world.record("wamid.VALID").status == "captured"
     assert _counts(pool, world) == []
     world.clock.now += timedelta(seconds=120)
@@ -466,11 +470,10 @@ async def test_two_workers_send_one_group_and_valid_receipt_stays_immediate(pool
 async def test_tenth_group_is_last_and_eleventh_is_suppressed_until_utc_tomorrow(
     pool, users
 ):
-    from argus.domain.ingestion.whatsapp.reply_groups import FINAL_REPLY
     from loguru import logger
 
     world = await _linked(pool, users)
-    # Keep the eleven 2-minute waits inside a single UTC day.
+    # Keep the eleven waits inside a single UTC day.
     world.clock.now = world.clock.now.replace(hour=12, minute=0, second=0, microsecond=0)
     records = []
     sink = logger.add(lambda message: records.append(message.record["extra"]))
@@ -482,7 +485,10 @@ async def test_tenth_group_is_last_and_eleventh_is_suppressed_until_utc_tomorrow
     finally:
         logger.remove(sink)
     assert len(world.transport.sent) == 10
-    assert world.transport.bodies()[-1] == FINAL_REPLY
+    assert world.transport.bodies()[-1] == (
+        "Por hoy no avisaremos más sobre archivos que no podamos recibir. "
+        "Las facturas válidas siguen entrando."
+    )
     assert _counts(pool, world) == [(10, 0)]
     assert any(
         row.get("event") == "whatsapp_reply_suppressed"
@@ -627,7 +633,7 @@ async def test_group_enqueue_rolls_back_with_settlement_and_replay_counts_once(
     world.clock.now += timedelta(seconds=120)
     assert await _worker(world).run_once()
     assert world.transport.bodies() == [
-        "No pudimos leer este archivo. Envíalo como foto o PDF."
+        "Disculpa, no pudimos recibir este archivo.\n• factura_0.png\nEnvíalo como foto o PDF."
     ]
 
 
@@ -655,7 +661,8 @@ async def test_capture_retry_counts_only_a_second_failure_on_postgres(
     assert attempts == 2
     assert len(world.transport.sent) == int(not fails_twice)
     world.clock.now += timedelta(seconds=120)
-    assert await _worker(world).run_once() == fails_twice
+    assert await _worker(world).run_once()
+    assert len(world.transport.bodies()) == 1
     assert _counts(pool, world) == ([(1, 0)] if fails_twice else [])
 
 
@@ -691,7 +698,7 @@ async def test_group_storage_encrypts_transport_identity_and_purges_expired_data
 
 
 @pytest.mark.asyncio
-async def test_retry_keeps_earliest_names_when_new_failures_arrive_during_send(
+async def test_retry_preserves_separate_forwards_when_a_new_failure_arrives_during_send(
     pool, users
 ):
     from argus.domain.ingestion.whatsapp.replies import ReplyFailed
@@ -710,10 +717,12 @@ async def test_retry_keeps_earliest_names_when_new_failures_arrive_during_send(
     world.transport.send = original
     world.clock.now += timedelta(seconds=120)
     assert await _worker(world).run_once()
+    assert await _worker(world).run_once()
     assert world.transport.bodies() == [
-        "No pudimos leer 2 archivos:\n• factura_0.png\n• factura_1.png\nEnvíalos como foto o PDF."
+        f"Disculpa, no pudimos recibir este archivo.\n• factura_{index}.png\nEnvíalo como foto o PDF."
+        for index in range(2)
     ]
-    assert _counts(pool, world) == [(1, 0)]
+    assert _counts(pool, world) == [(2, 0)]
 
 
 @pytest.mark.asyncio

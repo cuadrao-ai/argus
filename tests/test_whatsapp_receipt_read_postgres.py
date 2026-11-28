@@ -20,7 +20,6 @@ from argus.domain.ingestion.documents.models import DocumentDraft, ExtractionRes
 from argus.domain.ingestion.documents.service import DocumentsService
 from argus.domain.ingestion.documents.store_postgres import PostgresDocumentStore
 from argus.domain.ingestion.hub import IngestionHub
-from argus.domain.ingestion.whatsapp.replies import compose_reply
 from argus.domain.ingestion.whatsapp.store_postgres import PostgresWhatsAppStore
 
 from tests import test_business_actions_postgres as shared
@@ -176,15 +175,15 @@ async def test_a_whatsapp_receipt_is_read_through_the_owners_grant(actions, user
 
 
 @pytest.mark.asyncio
-async def test_the_acknowledgement_is_the_only_reply_for_a_completed_read(  # noqa: ANN201
+async def test_a_completed_read_sends_no_per_file_reply(  # noqa: ANN201
     actions,
     users,  # noqa: ANN001
 ):
     world, extractor = _rig(actions, users)
     connection_id = await _capture(world)
     replies = world.transport.bodies()
-    assert len(replies) == 2
-    assert replies[-1] == compose_reply("captured_reading", language="es-419")
+    assert len(replies) == 1
+    assert world.transport.read_ids() == ["wamid.READ-PG"]
     await read_receipt(world.documents, world.alice, connection_id)
     assert extractor.calls == 1
     assert _draft(world, connection_id).status == "review_ready"
