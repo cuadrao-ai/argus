@@ -1,3 +1,4 @@
+import { assertDialogSheetFit } from "./helpers/assert-dialog-sheet-fit";
 import assert from "node:assert/strict";
 import { afterAll, beforeAll, test } from "bun:test";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
@@ -44,6 +45,7 @@ for (const width of [1280, 390]) {
   test(`invitation history starts empty and preserves a draft at ${width}px`, async () => {
     const page = await mount(width);
     try {
+      if (width === 390) assertDialogSheetFit();
       assert.equal(document.querySelector('[data-testid="referral-sent-count"]')?.textContent, "0");
       assert.equal(document.querySelector('[data-testid="referral-joined-count"]')?.textContent, "0");
       await enter("draft@example.test"); await click(button("Historial de invitaciones"));

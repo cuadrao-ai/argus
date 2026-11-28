@@ -107,7 +107,6 @@ _PROBLEMS = {
     "invalid_idempotency_key": (422, "A command key is required."),
     "business_record_not_found": (404, "No such Business."),
     "business_reopen_expired": (409, "The reopening period has ended."),
-    "business_already_open": (409, "Another Business is already open."),
     "idempotency_conflict": (409, "This command key was already used."),
 }
 

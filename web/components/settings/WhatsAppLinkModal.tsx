@@ -1,15 +1,19 @@
 "use client";
 
-import { useContext, useEffect, useEffectEvent, useId, useState, type ReactNode } from "react";
-import { Clock, ExternalLink, Info, LoaderCircle, MessageCirclePlus } from "lucide-react";
+import { useContext, useEffect, useEffectEvent, useId, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { Briefcase, ChevronRight, Clock, ExternalLink, Inbox, Info, LoaderCircle, MessageCirclePlus } from "lucide-react";
 import Image from "next/image";
 import { useTranslation } from "react-i18next";
 import { BusinessContext } from "@/components/business-app/business-context";
 import { primaryButtonClass, secondaryButtonClass } from "@/components/business-app/business-ui";
 import { CHANNEL_ICON } from "@/components/business-app/foundation/channel-icons";
-import SettingsSurface from "@/components/settings/SettingsSurface";
+import SettingsSurface, { useInSettingsWindow, useSettingsStep } from "@/components/settings/SettingsSurface";
+import WhatsAppHeldFiles from "./WhatsAppHeldFiles";
 import CopyCodeButton from "@/components/settings/CopyCodeButton";
 import { normalizeEnabledLanguage, type ArgusLanguage } from "@/lib/language-features";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { formatRelativeTime, isRelativeTimestamp } from "@/components/business-app/business-format";
+import { formatRnc } from "@/lib/rnc-status";
 import { inlineFailureTextClass } from "@/lib/failure-treatment";
 import {
   createWhatsAppLinkCode, getWhatsAppLink, unlinkWhatsApp, whatsAppLinkProblem,
@@ -97,17 +101,102 @@ function Waiting({ code, seconds }: { code: WhatsAppLinkCode; seconds: number })
   </>;
 }
 
+const countChip = "inline-flex h-[22px] items-center rounded bg-[#f2e8c9] px-[7px] font-sans text-[13px] leading-none font-medium text-[#735c14] tabular-nums dark:bg-[#f6e7c1]/14 dark:text-[#f6e7c1]";
+type HeldRowProps = { count: number; onOpen: () => void; buttonRef: RefObject<HTMLButtonElement | null> };
+
+function HeldFilesRow({ count, onOpen, buttonRef }: HeldRowProps) {
+  const { t } = useTranslation();
+  if (!count) return null;
+  const label = t(key("held_title"));
+  return (
+    <button ref={buttonRef} type="button" onClick={onOpen} aria-label={label}
+      className="flex min-h-14 w-full items-center gap-3 rounded-surface border border-dashed border-[#A39E90] py-2 pr-3.5 pl-4 text-left hover:bg-black/[0.03] focus-visible:outline-2 focus-visible:outline-[var(--cuadrao-green)] dark:border-white/30 dark:hover:bg-white/5">
+      <Inbox size={18} aria-hidden="true" className="shrink-0 text-[#56635e] dark:text-white/70" />
+      <span className="min-w-0 flex-1">
+        <span className="block">{label}</span>
+        <span className={`block ${muted}`}>{t(key("held_help"))}</span>
+      </span>
+      <span className={countChip}>{count}</span>
+      <ChevronRight size={18} aria-hidden="true" className="shrink-0 text-[#56635e] dark:text-white/70" />
+    </button>
+  );
+}
+
+function WhatsAppLinkedDetails({ status, heldRow }: { status: WhatsAppLinkStatus; heldRow: ReactNode }) {
+  const { t, i18n } = useTranslation();
+  const locale = i18n.resolvedLanguage || i18n.language;
+  const now = new Date();
+  const stamp = formatRelativeTime(status.linked_at, locale, now);
+  const WhatsApp = CHANNEL_ICON.whatsapp;
+  const receivingTitle = t(key("receiving_title"));
+  return <>
+    <section className="flex items-center gap-3.5 rounded-surface bg-[#F7F5EE] p-4 dark:bg-[#1f2225]">
+      <span className="grid size-11 shrink-0 place-items-center"><WhatsApp size={24} aria-hidden="true" /></span>
+      <div className="min-w-0 flex-1">
+        <h3 className="text-base leading-6 font-medium tabular-nums">{t(key("linked"), { last4: status.last4 })}</h3>
+        {status.linked_at && stamp && <time dateTime={status.linked_at} className={`block ${muted}`}>
+          {isRelativeTimestamp(status.linked_at, now)
+            ? t(key("linked_relative"), { relativeTime: stamp })
+            : t(key("linked_date"), { date: locale.startsWith("es") ? stamp.toLocaleLowerCase(locale) : stamp })}
+        </time>}
+      </div>
+    </section>
+    {heldRow}
+    <section className="space-y-2">
+      <div>
+        <h3 className="text-base font-medium">{receivingTitle}</h3>
+        <p className={`${muted} mt-1`}>{t(key("routing_help"))}</p>
+      </div>
+      {status.receiving_businesses.length > 0 && <ul aria-label={receivingTitle} className="overflow-hidden rounded-surface bg-[#F7F5EE] dark:bg-[#1f2225]">
+        {status.receiving_businesses.map(({ space_id, name, tax_id }) => (
+          <li key={space_id} className="relative flex min-h-14 items-center gap-3 px-4 py-2 not-first:before:absolute not-first:before:inset-x-0 not-first:before:top-0 not-first:before:left-4 not-first:before:border-t not-first:before:border-[#172b26]/12 dark:not-first:before:border-white/10">
+            <span className="grid size-8 shrink-0 place-items-center rounded-item bg-[#E8E6DE] text-[#3d4a45] dark:bg-white/8 dark:text-white/80"><Briefcase size={16} aria-hidden="true" /></span>
+            <div className="min-w-0 break-words"><p>{name}</p><p className={`${muted} tabular-nums`}>{t(`business.dgii.tax_id_${tax_id.type}`)} {formatRnc(tax_id.value)}</p></div>
+          </li>
+        ))}
+      </ul>}
+      <p className={muted}>{t(key("receiving_hint"))}</p>
+    </section>
+  </>;
+}
+
 type Frame = { onClose: () => void; onBack?: () => void; backLabel?: string };
 type Issued = { code: WhatsAppLinkCode; seconds: number; expired: boolean; language: ArgusLanguage; token: string };
 const remaining = (expires: string) => Math.max(0, Math.ceil((Date.parse(expires) - Date.now()) / 1000));
 
 export default function WhatsAppLinkModal(frame: Frame) {
   const { t, i18n } = useTranslation();
+  const inWindow = useInSettingsWindow();
   const business = useContext(BusinessContext);
   const language = normalizeEnabledLanguage(i18n.resolvedLanguage);
   const [answer, setAnswer] = useState<{ language: ArgusLanguage; status: WhatsAppLinkStatus } | null>(null);
   const status = answer?.language === language ? answer.status : null;
   const [refresh, setRefresh] = useState(0);
+  const [listCount, setListCount] = useState<number | null>(null);
+  const heldButton = useRef<HTMLButtonElement>(null);
+  const sectionBody = useRef<HTMLDivElement>(null);
+  const listOpen = listCount !== null;
+  const heldLabel = t(key("held_title"));
+  const listTitle = useMemo(() => listCount === null ? null : <>
+    {heldLabel}{listCount > 0 && <span className={`ml-2 align-middle ${countChip}`}>{listCount}</span>}
+  </>, [heldLabel, listCount]);
+  function backToLink() {
+    if (listCount !== null) {
+      setAnswer(current => current && { ...current, status: { ...current.status, held_count: listCount } });
+    }
+    setListCount(null);
+    setRefresh(value => value + 1);
+    requestAnimationFrame(() => (heldButton.current ?? sectionBody.current)?.focus());
+  }
+  useSettingsStep(listTitle, backToLink);
+  useEffect(() => {
+    if (!listOpen || !inWindow) return;
+    const focus = requestAnimationFrame(() => {
+      const header = sectionBody.current?.closest("section[aria-labelledby], [role=dialog]")?.querySelector("header");
+      header?.querySelector("button")?.focus();
+    });
+    return () => cancelAnimationFrame(focus);
+  }, [listOpen, inWindow]);
   const [lastIssued, setIssued] = useState<Issued | null>(null);
   const issued = lastIssued?.language === language ? lastIssued : null;
   const [busy, setBusy] = useState(false);
@@ -206,23 +295,27 @@ export default function WhatsAppLinkModal(frame: Frame) {
     }
   }
 
+  if (listOpen) {
+    return <SettingsSurface {...frame} title={listTitle} onBack={backToLink} backLabel={t("common.back")}
+      onClose={inWindow ? frame.onClose : backToLink} closeLabel={t("common.close")} width="md">
+      <div ref={sectionBody} className="h-full">
+        <WhatsAppHeldFiles onBack={backToLink} onCountChange={setListCount} />
+      </div>
+    </SettingsSurface>;
+  }
+  const heldRow = status && <HeldFilesRow count={status.held_count} buttonRef={heldButton} onOpen={() => setListCount(status.held_count)} />;
   const cancel = <button type="button" className={secondaryButtonClass} onClick={() => { setIssued(null); setProblem(null); }}>{t(key("cancel"))}</button>;
   const create = (label: string) => <button type="button" disabled={busy || !status?.disclosure || !status.disclosure_token} className={primaryButtonClass} onClick={createCode}>{t(key(label))}</button>;
   const blocked = problem === "setup_required" || status?.receiving_businesses.length === 0;
+  const readingNotice = t(key("reading_notice"));
   let body: ReactNode;
   let footer: ReactNode;
   if (status?.linked) {
-    body = <>
-      <section className={box}><div><h3 className={title}>{t(key("number"))}</h3><p>{t(key("linked"), { last4: status.last4 })}</p></div></section>
-      <section className="space-y-2 rounded-surface border border-[var(--surface-divider)] p-4">
-        <p>{t("business.activity.all_channels")}</p><a href="/biz?view=inbox" className={secondaryButtonClass}>{t("business.activity.open_settings")}</a>
-      </section>
-      {confirmUnlink && <p>{t(key("confirm_unlink"))}</p>}
+    body = <WhatsAppLinkedDetails status={status} heldRow={heldRow} />;
+    footer = <>
+      {!confirmUnlink && <p className={`${muted} flex-1`}>{readingNotice}</p>}
+      <button type="button" className="min-h-11 shrink-0 rounded-full border border-[#7d8a84]/60 bg-white px-5 font-medium text-[#172b26] hover:bg-[#F7F5EE] dark:border-white/20 dark:bg-[#1f2225] dark:text-white dark:hover:bg-white/10" onClick={() => setConfirmUnlink(true)}>{t(key("unlink"))}</button>
     </>;
-    footer = confirmUnlink ? <>
-      <button className={secondaryButtonClass} disabled={busy} onClick={unlink}>{t(key("confirm"))}</button>
-      <button className={secondaryButtonClass} onClick={() => setConfirmUnlink(false)}>{t(key("cancel"))}</button>
-    </> : <button className={secondaryButtonClass} onClick={() => setConfirmUnlink(true)}>{t(key("unlink"))}</button>;
   } else if (issued && !issued.expired) {
     body = <Waiting code={issued.code} seconds={issued.seconds} />;
     footer = <>{issued.code.wa_me_url && <><p className={`${muted} min-w-0 flex-1 max-tablet:hidden`}>{t(key("desktop_prompt"))}</p>
@@ -252,10 +345,30 @@ export default function WhatsAppLinkModal(frame: Frame) {
     body = <p role="status">{t(key("loading"))}</p>;
   }
   return <SettingsSurface {...frame} title={t(key("title"))} closeLabel={t("common.close")} width="md"
-    footer={footer && <div className="flex flex-col gap-3 tablet:flex-row tablet:items-center tablet:justify-end">{footer}</div>}>
-    <div className="space-y-[21px] px-4 py-5 text-base text-[#172b26] tablet:px-6 dark:text-white">
-      {problem && problem !== "setup_required" && <p role="alert" className={inlineFailureTextClass}>{t(key(`problem_${problem}`))}</p>}
+    footer={footer && <div className={`flex flex-col gap-3 tablet:flex-row tablet:items-center tablet:justify-end ${inWindow && status?.linked ? "max-tablet:-mx-1 max-tablet:pb-3" : ""}`}>{footer}</div>}>
+    <div ref={sectionBody} tabIndex={-1} className={`space-y-[21px] px-4 py-5 text-base text-[#172b26] dark:text-white ${status?.linked ? "max-tablet:pb-4 tablet:px-5 tablet:pt-4" : "tablet:px-6"}`}>
+      {!confirmUnlink && problem && problem !== "setup_required" && <p role="alert" className={inlineFailureTextClass}>{t(key(`problem_${problem}`))}</p>}
+      {status && !status.linked && heldRow}
       {body}
+      {status?.linked && confirmUnlink && <ConfirmDialog isOpen detailed tone="primary"
+        title={t(key("unlink_title"), { last4: status.last4 })}
+        description={<div className="space-y-4">
+          {status.held_count === 0 ? <p>{t(key("unlink_empty"))}</p> : (
+            <ul className="space-y-2.5">
+              {["unlink_stop", "unlink_held", "unlink_reading", "unlink_no_message"].map(name => (
+                <li key={name} className="flex gap-2.5 before:mt-[9px] before:size-1.5 before:shrink-0 before:rounded-full before:bg-[#7d8a84] dark:before:bg-white/50">
+                  {t(key(name), { count: status.held_count })}
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className={muted}>{readingNotice}</p>
+        </div>}
+        confirmLabel={t("workspace_setup_preview.unlink")} cancelLabel={t(key("cancel"))}
+        isBusy={busy} error={problem && t(key(`problem_${problem}`))}
+        onCancel={() => { if (!busy) { setConfirmUnlink(false); setProblem(null); } }}
+        onConfirm={unlink}
+      />}
     </div>
   </SettingsSurface>;
 }

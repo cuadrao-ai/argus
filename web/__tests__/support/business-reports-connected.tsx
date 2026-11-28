@@ -6,6 +6,7 @@ import { BusinessContext, type BusinessContextValue } from "@/components/busines
 import { ShellAccount } from "./shell-account";
 import BusinessReportsPanel, { ConnectedBusinessReports } from "@/components/business-app/transacciones/BusinessReportsPanel";
 import { createFixtureBusinessDataSource } from "@/components/business-app/fixture-data";
+import { RecordsExportJob, RecordsExportJobContext } from "@/components/business-app/transacciones/records-export-job";
 import { setChosenGrant } from "@/lib/business-grant";
 import { openOverlayEntries } from "@/lib/overlay-history";
 import { reportAnswerSchema, reportRequestSchema, type ReportAnswer, type ReportRecord, type ReportRequest, type RecordsCurrency } from "@/lib/business-reports-api";
@@ -57,7 +58,8 @@ export async function mountConnectedReport(options: { onAdd?: () => void; defaul
   const i18n = await translate(options.language ?? "es-419");
   const host = document.createElement("div"); document.body.appendChild(host); const root = createRoot(host);
   let reloads = 0;
-  const render = () => root.render(<StrictMode><I18nextProvider i18n={i18n}><BusinessContext.Provider value={{ ...context }}><ShellAccount member={options.member === undefined ? "synthetic-person" : options.member} dismissed={options.dismissedGuides === undefined ? [] : options.dismissedGuides}><Profiler id="registros" onRender={() => options.onCommit?.()}>{options.topLevel ? <BusinessReportsPanel /> : <ConnectedBusinessReports defaultCurrency={context.records.workspace!.records_default_currency} initial={options.initial} scope={{ userId: "synthetic-person", businessId: fixtureId(3000), grantId: options.grantId ?? null }} />}</Profiler></ShellAccount></BusinessContext.Provider></I18nextProvider></StrictMode>);
+  const exportJob = new RecordsExportJob();
+  const render = () => root.render(<StrictMode><I18nextProvider i18n={i18n}><RecordsExportJobContext.Provider value={exportJob}><BusinessContext.Provider value={{ ...context }}><ShellAccount member={options.member === undefined ? "synthetic-person" : options.member} dismissed={options.dismissedGuides === undefined ? [] : options.dismissedGuides}><Profiler id="registros" onRender={() => options.onCommit?.()}>{options.topLevel ? <BusinessReportsPanel /> : <ConnectedBusinessReports defaultCurrency={context.records.workspace!.records_default_currency} initial={options.initial} scope={{ userId: "synthetic-person", businessId: fixtureId(3000), grantId: options.grantId ?? null }} />}</Profiler></ShellAccount></BusinessContext.Provider></RecordsExportJobContext.Provider></I18nextProvider></StrictMode>);
   const rerender = () => act(async () => render());
   context.reload = () => {
     reloads += 1;
@@ -83,5 +85,5 @@ export async function mountConnectedReport(options: { onAdd?: () => void; defaul
   const lists = context.records as { listChanges?: number; listChecks?: number };
   const listChecked = async () => { lists.listChecks = (lists.listChecks ?? 0) + 1; await rerender(); };
   const listChanged = async () => { lists.listChanges = (lists.listChanges ?? 0) + 1; await listChecked(); };
-  return { fixture, settle, click, button, type, downloads, opened, context, rerender, reloaded, listChanged, listChecked, reloads: () => reloads, dismissedGuides, guideRequests, meRequests };
+  return { fixture, exportJob, i18n, settle, click, button, type, downloads, opened, context, rerender, reloaded, listChanged, listChecked, reloads: () => reloads, dismissedGuides, guideRequests, meRequests };
 }

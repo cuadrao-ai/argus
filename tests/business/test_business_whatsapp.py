@@ -30,6 +30,7 @@ from tests.business.test_business_api import Owner, started
 from tests.document_reads_support import read_receipt
 from tests.ingestion.test_whatsapp_api import UNSHOWN_LINK, link_alice, post
 from tests.ingestion.whatsapp_cases import FORWARDED
+from tests.ingestion.whatsapp_link_support import SYNTHETIC_TAX_ID
 from tests.ingestion.whatsapp_support import (
     DOCUMENT_FIXTURES,
     ENV,
@@ -51,7 +52,7 @@ def wa_biz(
         monkeypatch.setenv(name, value)
         if name.startswith("ARGUS_"):
             monkeypatch.delenv(name.replace("ARGUS_", "CUADRAO_", 1), raising=False)
-    monkeypatch.setattr("argus.api.whatsapp._memory_has_tax_id", lambda _space: True)
+    monkeypatch.setattr("argus.api.whatsapp._memory_tax_id", lambda _space: SYNTHETIC_TAX_ID)
     graph = FakeGraph({"700000000000001": Media(RECEIPT_PNG, "image/png")})
     with (
         patch.object(api_state, "supabase_gateway", gateway),

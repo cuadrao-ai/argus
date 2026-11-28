@@ -27,7 +27,7 @@ from loguru import logger
 
 from tests.business_reading_support import ROUTE, turn_reading
 from tests.ingestion.conftest import ALICE, BOB, GUEST, bearer
-from tests.ingestion.whatsapp_link_support import ENGLISH_NOTICE, NOTICE
+from tests.ingestion.whatsapp_link_support import ENGLISH_NOTICE, NOTICE, SYNTHETIC_TAX_ID
 from tests.ingestion.whatsapp_support import (
     ALICE_PHONE,
     ENV,
@@ -110,6 +110,21 @@ def test_person_can_see_their_existing_link_after_losing_prepare(wa_client, monk
     assert answer.json()["linked"] is True
 
 
+def test_link_returns_fiscal_ids_only_for_the_senders_eligible_businesses(wa_client, identities):
+    link_alice(wa_client)
+    alice = identities[ALICE]["id"]
+    own = resolve_business_scope(business_spaces(), alice).owner.space_id
+    other = resolve_business_scope(business_spaces(), identities[BOB]["id"]).owner.space_id
+    assert own != other
+    response = wa_client.get(LINK, headers=bearer(ALICE))
+    assert response.status_code == 200
+    assert response.json()["receiving_businesses"] == [
+        {"space_id": own, "name": "Mi negocio", "tax_id": {"type": "rnc", "value": "131456782"}}
+    ]
+    turn_reading(documents_service().business_receipt_consent, own, alice, enabled=False)
+    assert wa_client.get(LINK, headers=bearer(ALICE)).json()["receiving_businesses"] == []
+
+
 def test_standalone_consent_cannot_enable_a_read(wa_client: TestClient) -> None:
     for method in ("GET", "POST"):
         response = wa_client.request(method, "/api/v1/whatsapp/ai-consent", headers=bearer(ALICE))
@@ -137,7 +152,7 @@ def graph() -> FakeGraph:
 def wa_client(
     ingestion_env, gateway, identities, monkeypatch, graph
 ) -> Iterator[TestClient]:  # noqa: ANN001
-    monkeypatch.setattr("argus.api.whatsapp._memory_has_tax_id", lambda _space: True)
+    monkeypatch.setattr("argus.api.whatsapp._memory_tax_id", lambda _space: SYNTHETIC_TAX_ID)
     for name, value in ENV.items():
         monkeypatch.setenv(name, value)
     with (
@@ -197,9 +212,15 @@ def test_flag_off_answers_404_everywhere(client: TestClient) -> None:
         client.get(WEBHOOK, params={"hub.mode": "subscribe"}),
         client.post(WEBHOOK, content=raw, headers={"X-Hub-Signature-256": sign(raw)}),
         client.post(CODES, json=UNSHOWN_LINK, headers=bearer(ALICE)),
+        client.get("/api/v1/whatsapp/held-files", headers=bearer(ALICE)),
+        client.get("/api/v1/whatsapp/held-files/00000000-0000-0000-0000-000000000001/preview", headers=bearer(ALICE)),
+        client.post(
+            "/api/v1/whatsapp/held-files/00000000-0000-0000-0000-000000000001/assign",
+            headers=bearer(ALICE), json={"business_id": "00000000-0000-0000-0000-000000000002"},
+        ),
         client.get(LINK, headers=bearer(ALICE)),
     ]
-    assert [r.status_code for r in responses] == [404] * 4
+    assert all(r.status_code == 404 for r in responses)
     assert {r.json()["code"] for r in responses} == {"whatsapp_unavailable"}
     # Unlinking is never gated; with intake off nothing here holds a link.
     assert client.delete(LINK, headers=bearer(ALICE)).status_code == 204
@@ -302,7 +323,7 @@ def test_link_capture_status_and_revoke_over_http(
         f"https://wa.me/15550009999?text=CUADRAO%20{issued['code']}"
     )
     assert wa_client.get(LINK, headers=bearer(ALICE)).json() == {
-        "receiving_businesses": [{"space_id": business.space_id, "name": "Mi negocio"}],
+        "receiving_businesses": [{"space_id": business.space_id, "name": "Mi negocio", "tax_id": SYNTHETIC_TAX_ID.model_dump()}],
         "held_count": 0,
         "disclosure": NOTICE,
         "disclosure_token": body["disclosure_token"],
@@ -497,3 +518,19 @@ def test_unlink_answers_503_when_the_link_store_cannot_be_reached(
         503,
         "whatsapp_link_unavailable",
     )
+
+
+def test_held_list_only_offers_the_signed_in_senders_receiving_businesses(
+    wa_client, identities
+):
+    owner = identities[ALICE]["id"]
+    own = resolve_business_scope(business_spaces(), owner).owner.space_id
+    other = resolve_business_scope(business_spaces(), identities[BOB]["id"]).owner.space_id
+    response = wa_client.get("/api/v1/whatsapp/held-files", headers=bearer(ALICE))
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "private, no-store"
+    assert response.json() == {
+        "files": [],
+        "receiving_businesses": [{"space_id": own, "name": "Mi negocio"}],
+    }
+    assert other not in response.text

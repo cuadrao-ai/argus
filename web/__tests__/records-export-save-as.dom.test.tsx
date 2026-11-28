@@ -41,6 +41,13 @@ async function open(page: Page) {
   await page.settle(() => /^Exportar \d+ registros?$/.test(downloadButton()?.textContent?.trim() ?? ""));
 }
 
+/** A failed export closes nothing by itself: the panel is already closed, and opening it again shows the failure. */
+async function reopenAtFailure(page: Page) {
+  await page.settle(() => page.exportJob.snapshot().state.kind === "failed");
+  await open(page);
+  await page.settle(() => alert() !== null);
+}
+
 async function showToasts() {
   const { createRoot } = await import("react-dom/client");
   const { ToastViewport } = await import("@/components/business-app/foundation/ToastViewport");
@@ -161,33 +168,6 @@ test("a failed write discards the partial file, removes the empty one, and falls
   assert.match(toasts.textContent!, /Listo\. Revisa tus descargas/);
 });
 
-test.each([
-  { result: "fails", writeFails: true, existing: "" },
-  { result: "fails while replacing an existing file", writeFails: true, existing: "last month's 606" },
-  { result: "succeeds", writeFails: false, existing: "" },
-])("closing mid-write stays silent when the write $result", async ({ writeFails, existing }) => {
-  let release = () => {};
-  const writeGate = new Promise<void>((resolve) => { release = resolve; });
-  const toasts = await showToasts();
-  const page = await mount();
-  const save = chromiumPicker(page, { writeFails, existing, writeGate });
-  await open(page);
-  await page.click(downloadButton());
-  await page.settle(() => save.writables() === 1);
-  assert.equal(save.written.length, 0, "the write is still pending");
-  await page.click(page.button("Cerrar"));
-  await page.settle(() => panel() === null);
-  await open(page);
-  const reopened = panel();
-  await act(async () => release());
-  if (writeFails) assert.deepEqual(save.removed, existing ? [] : ["Compras todas las monedas.xlsx"], "only an empty file is discarded");
-  assert.equal(page.downloads.length, 0, "a closed export never starts a download");
-  assert.equal(toasts.textContent, "", "a closed export never shows a toast");
-  assert.equal(panel(), reopened, "the old run cannot close the reopened dialog");
-  assert.equal(downloadButton()!.disabled, false, "the old run cannot change the new dialog's state");
-  assert.equal(alert(), null);
-});
-
 test("a failed build writes nothing and Reintentar asks the server again for the place already chosen", async () => {
   const toasts = await showToasts();
   const page = await mount();
@@ -195,7 +175,7 @@ test("a failed build writes nothing and Reintentar asks the server again for the
   page.fixture.controls.exportFails = true;
   await open(page);
   await page.click(downloadButton());
-  await page.settle(() => alert() !== null);
+  await reopenAtFailure(page);
   assert.match(alert()!.textContent!, /No se pudo guardar el archivo\./);
   assert.equal(save.writables(), 0, "nothing is written");
   assert.equal(page.downloads.length, 0);
@@ -214,7 +194,7 @@ test("a failed build, then closing the export, removes the empty file Save As ma
   page.fixture.controls.exportFails = true;
   await open(page);
   await page.click(downloadButton());
-  await page.settle(() => alert() !== null);
+  await reopenAtFailure(page);
   assert.deepEqual(save.removed, [], "the place stays while Reintentar can still write to it");
   await page.click(page.button("Cerrar"));
   await page.settle(() => panel() === null);
@@ -230,7 +210,7 @@ test("a failed build, then closing the export, never removes an existing file th
   page.fixture.controls.exportFails = true;
   await open(page);
   await page.click(downloadButton());
-  await page.settle(() => alert() !== null);
+  await reopenAtFailure(page);
   await page.click(page.button("Cerrar"));
   await page.settle(() => panel() === null);
   await act(async () => { await new Promise((resolve) => setTimeout(resolve, 50)); });
@@ -245,7 +225,7 @@ test("where the chosen file cannot be read, closing after a failed build keeps i
     page.fixture.controls.exportFails = true;
     await open(page);
     await page.click(downloadButton());
-    await page.settle(() => alert() !== null);
+    await reopenAtFailure(page);
     await page.click(page.button("Cerrar"));
     await page.settle(() => panel() === null);
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 50)); });
@@ -263,7 +243,7 @@ test("after a failed build, choosing another file removes the first place's empt
   page.fixture.controls.exportFails = true;
   await open(page);
   await page.click(downloadButton());
-  await page.settle(() => alert() !== null);
+  await reopenAtFailure(page);
   page.fixture.controls.exportFails = false;
   await page.click(page.button("CSV"));
   await page.click(downloadButton());
@@ -279,7 +259,7 @@ test("where a handle has no remove(), or removing fails, closing after a failed 
     page.fixture.controls.exportFails = true;
     await open(page);
     await page.click(downloadButton());
-    await page.settle(() => alert() !== null);
+    await reopenAtFailure(page);
     await page.click(page.button("Cerrar"));
     await page.settle(() => panel() === null);
     assert.deepEqual(save.removed, remove === "fails" ? ["Compras todas las monedas.xlsx"] : []);

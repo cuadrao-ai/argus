@@ -15174,6 +15174,109 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  /api/v1/whatsapp/held-files:
+    get:
+      tags:
+      - financial-accounts
+      - whatsapp
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HeldFilesResponse'
+        '404':
+          description: 'whatsapp_unavailable: receiving is unavailable.'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/whatsapp/held-files/{held_id}/assign:
+    post:
+      tags:
+      - financial-accounts
+      - whatsapp
+      parameters:
+      - name: held_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HeldFileAssignment'
+      responses:
+        '204':
+          description: Successful Response
+        '403':
+          description: 'business_permission_denied: selected Business is ineligible.'
+        '404':
+          description: Receiving unavailable, or no pending file for this sender.
+        '409':
+          description: document_busy or held_file_already_assigned.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/whatsapp/held-files/{held_id}/preview:
+    get:
+      tags:
+      - financial-accounts
+      - whatsapp
+      parameters:
+      - name: held_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Receiving unavailable, or no pending file for this sender.
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/AuthSessionVerificationUnavailable'
+        '500':
+          description: An unexpected server error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/v1/whatsapp/link:
     get:
       tags:
@@ -24410,6 +24513,73 @@ components:
       - created_at
       - updated_at
       description: Guest-safe profile projection without registered-only preferences.
+    HeldBusiness:
+      properties:
+        space_id:
+          type: string
+        name:
+          type: string
+      type: object
+      required:
+      - space_id
+      - name
+    HeldFileAssignment:
+      properties:
+        business_id:
+          type: string
+          format: uuid
+      additionalProperties: false
+      type: object
+      required:
+      - business_id
+    HeldFileResponse:
+      properties:
+        id:
+          type: string
+        reason:
+          type: string
+          enum:
+          - no_buyer_rnc
+          - no_match
+          - two_matches
+          - no_eligible_business
+          - held_read_cap
+          - read_failed
+        reading:
+          type: boolean
+        held_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+        media_type:
+          type: string
+        preview_url:
+          type: string
+      type: object
+      required:
+      - id
+      - reason
+      - reading
+      - held_at
+      - expires_at
+      - media_type
+      - preview_url
+    HeldFilesResponse:
+      properties:
+        files:
+          items:
+            $ref: '#/components/schemas/HeldFileResponse'
+          type: array
+        receiving_businesses:
+          items:
+            $ref: '#/components/schemas/HeldBusiness'
+          type: array
+      type: object
+      required:
+      - files
+      - receiving_businesses
     HeldLine:
       properties:
         activity_id:
@@ -30772,10 +30942,13 @@ components:
           type: string
         name:
           type: string
+        tax_id:
+          $ref: '#/components/schemas/TaxId'
       type: object
       required:
       - space_id
       - name
+      - tax_id
     ReceivingChannel:
       properties:
         available:
@@ -34076,7 +34249,6 @@ components:
             - account_unavailable
             - not_admin
             - email_unconfirmed
-            - owns_open_business
           - type: 'null'
       type: object
       required:

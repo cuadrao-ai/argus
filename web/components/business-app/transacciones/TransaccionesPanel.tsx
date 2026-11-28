@@ -41,7 +41,8 @@ import { TransaccionesTable } from "./TransaccionesTable";
 import { TransaccionesTray } from "./TransaccionesTray";
 import { useTransaccionesWords } from "./transacciones-words";
 import BusinessReportsPanel, { ConnectedBusinessReports, RecordsWorkspaceUnavailable, reportFiltersFromUi, reportPeriodFromUi } from "./BusinessReportsPanel";
-import RecordsExportPanel, { type RecordsExportProps } from "./RecordsExportPanel";
+import RecordsExportPanel from "./RecordsExportPanel";
+import { useRecordsExportJob, type ExportReview } from "./records-export-job";
 import { RecordsExportButton } from "./RecordsExportButton";
 import { clearRecordsExportRequest, useRecordsExportRequested } from "./records-export-request";
 import { useTransacciones } from "./useTransacciones";
@@ -137,8 +138,8 @@ function LegacyTransaccionesPanel() {
   const visibleRecords = filteredRecords?.filter((row) =>
     localPaging ? matchesPreviewSearch(row) : !query || (row.counterparty ?? "").toLocaleLowerCase(locale).includes(query)) ?? null;
   const sampleOverview = localPaging && visibleRecords ? sampleRecordsOverview({ sourceMode: source.mode, businessId: chosen?.space_id ?? null, rows: visibleRecords, kind: filter.kind }) : undefined;
-  const [exporting, setExporting] = useState<Pick<RecordsExportProps, "scope" | "request" | "periodLabel" | "filterCount"> | null>(null);
-  const [reviewing, setReviewing] = useState<Pick<RecordsExportProps, "scope" | "request"> | null>(null);
+  const { job: exportJob, panel: exporting } = useRecordsExportJob();
+  const [reviewing, setReviewing] = useState<ExportReview | null>(null);
   const exportRequested = useRecordsExportRequested();
   const canExport = chosen?.permissions?.includes("export") === true && list.kind === "ready" && (source.mode === "fixture" || Boolean(userId) && records.workspaceGrant === getChosenGrant());
   const openExport = () => {
@@ -146,7 +147,7 @@ function LegacyTransaccionesPanel() {
     const selectedPeriod = localPaging && !igualar ? previewPeriod : period;
     const selectedFilters = localPaging && !igualar ? previewFilters : emptyPreviewFilters(recordsCurrencySchema.parse(bank?.currency ?? records.workspace?.records_default_currency));
     const filters = reportFiltersFromUi(reportFiltersSchema.parse({ period: reportPeriodFromUi(selectedPeriod), q: igualar ? "" : filter.query.trim() }), selectedFilters, igualar ? "gasto" : filter.kind);
-    setExporting({
+    exportJob.open({
       scope: { userId: source.mode === "fixture" ? "fixture-person" : userId!, businessId: chosen.space_id, grantId: getChosenGrant() },
       request: reportRequestSchema.parse({ schema_version: 2, filters, ...(!igualar && shownPreferences ? { presentation: recordsPresentationToReport(shownPreferences), sort: recordsSortToReport(shownPreferences.sort) } : {}) }),
       periodLabel: periodLabel(selectedPeriod), filterCount: activeFilterGroups(selectedFilters).length + (filters.q ? 1 : 0),
@@ -263,7 +264,7 @@ function LegacyTransaccionesPanel() {
           </>
         )}
         {saved && !localPaging ? <p data-testid="records-count" aria-live="polite" className="mt-4 text-[13px] text-[#56635e] dark:text-white/65">{t("business.transactions.layout.count", { count: visibleRecords?.length ?? 0 })}</p> : null}
-        {exporting && chosen?.permissions?.includes("export") ? <RecordsExportPanel {...exporting} transport={source.mode === "fixture" ? sampleExportTransport : liveReportingTransport} onClose={() => setExporting(null)} onReviewFiscal={(currency) => setReviewing({ scope: exporting.scope, request: reportRequestSchema.parse({ filters: { period: exporting.request.filters.period, record_families: exporting.request.filters.record_families, currencies: [currency], fiscal_data: "missing" } }) })} /> : null}
+        {exporting && chosen?.permissions?.includes("export") ? <RecordsExportPanel panel={exporting} transport={source.mode === "fixture" ? sampleExportTransport : liveReportingTransport} onClose={() => exportJob.close()} onReviewFiscal={setReviewing} /> : null}
         {trayMovement ? <TransaccionesTray key={tray?.run ? "run" : trayMovement.id} controller={controller} movement={trayMovement} phone={phone} returnFocusRef={trayRow} /> : null}
       </section>
     </PullToRefresh>

@@ -900,12 +900,26 @@
       "expired_message": "This message no longer works.",
       "expired_title": "The code expired",
       "expires_in": "Expires in {{time}}",
-      "intro_body": "Link your number and send photos or PDFs of invoices and receipts to Cuadrao's number. Each file goes to the business whose RNC or cédula appears on the document.",
+      "held": {
+        "assign": "Assign",
+        "assigned": "File assigned to {{business}}.",
+        "reason": {
+          "no_buyer_rnc": "No buyer RNC",
+          "no_match": "The RNC isn't one of your receiving businesses",
+          "two_matches": "Matches more than one of your businesses"
+        }
+      },
+      "held_help": "Waiting for you to choose which business they go to",
+      "held_title": "Files with no business",
+      "intro_body": "Link your number and send photos or PDFs of invoices and receipts to Cuadrao's number. $t(settings.whatsapp.routing_help)",
       "intro_held": "If we can't tell which business it belongs to, it waits here for you to choose.",
       "intro_title": "Send your documents on WhatsApp",
       "link_phone": "Link my WhatsApp",
       "mobile_steps": "Tap Open WhatsApp. The message is already written. Just tap Send and come back here.",
       "mobile_title": "Send the code on WhatsApp",
+      "receiving_hint": "Missing a business? It needs its RNC or cédula and automatic reading turned on.",
+      "receiving_title": "Businesses that receive",
+      "routing_help": "Each file goes to the business whose RNC or cédula appears on the document.",
       "scan_camera": "Open your phone's camera and scan the code.",
       "scan_return": "This screen updates on its own when it arrives.",
       "scan_send": "WhatsApp opens with the message ready. Tap Send.",
@@ -917,6 +931,16 @@
       "number": "Linked number",
       "loading": "Reading your link…",
       "linked": "Number ending in {{last4}}",
+      "linked_date": "Linked on {{date}}",
+      "linked_relative": "Linked {{relativeTime}}",
+      "reading_notice": "What you send by WhatsApp is read by AI to find which business it goes to.",
+      "unlink_title": "Unlink the number ending in {{last4}}?",
+      "unlink_stop": "We'll stop receiving files from that number.",
+      "unlink_held_one": "The file with no business stays here until you assign it or it expires.",
+      "unlink_held_other": "The {{count}} files with no business stay here until you assign them or they expire.",
+      "unlink_reading": "Files still being read will finish and go to their business or stay here.",
+      "unlink_no_message": "We won't send any message to that number.",
+      "unlink_empty": "New messages from that number won't be accepted. Receipts that already arrived stay in each business's Inbox.",
       "new_code": "Get a new code",
       "send_steps": "Send this message from your own WhatsApp to the Cuadrao number. The code works once and expires soon.",
       "copy_code": "Copy code",
@@ -3787,7 +3811,6 @@
       },
       "errors": {
         "accept_uncertain": "We couldn't confirm acceptance. Refresh to check the result.",
-        "already_open": "You already own another open business. You can own only one open business at a time.",
         "business_unavailable": "This business is unavailable with your current access.",
         "close_uncertain": "We couldn't confirm the closure. Retry to check the result.",
         "decline_uncertain": "We couldn't confirm the decline. Refresh to check the result.",
@@ -3838,8 +3861,7 @@
         "ineligible": {
           "account_unavailable": "This account cannot take ownership of the business.",
           "email_unconfirmed": "Their email needs confirmation.",
-          "not_admin": "Change their access to Administrador first.",
-          "owns_open_business": "Already owns another open business."
+          "not_admin": "Change their access to Administrador first."
         },
         "member": "New owner",
         "none_eligible": "No members can take ownership now. Check the reason beside each person.",

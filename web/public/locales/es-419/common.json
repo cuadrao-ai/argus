@@ -900,12 +900,26 @@
       "expired_message": "Este mensaje ya no sirve.",
       "expired_title": "El código venció",
       "expires_in": "Vence en {{time}}",
-      "intro_body": "Vincula tu número y envía fotos o PDF de facturas y recibos al número de Cuadrao. Cada archivo va al negocio cuyo RNC o cédula sale en el documento.",
+      "held": {
+        "assign": "Asignar",
+        "assigned": "Archivo asignado a {{business}}.",
+        "reason": {
+          "no_buyer_rnc": "Sin RNC del comprador",
+          "no_match": "El RNC no es de ninguno de tus negocios que reciben",
+          "two_matches": "Coincide con más de uno de tus negocios"
+        }
+      },
+      "held_help": "Esperan que elijas a qué negocio van",
+      "held_title": "Archivos sin negocio",
+      "intro_body": "Vincula tu número y envía fotos o PDF de facturas y recibos al número de Cuadrao. $t(settings.whatsapp.routing_help)",
       "intro_held": "Si no sabemos a qué negocio va, te espera aquí para que lo elijas tú.",
       "intro_title": "Envía tus documentos por WhatsApp",
       "link_phone": "Vincular mi WhatsApp",
       "mobile_steps": "Toca Abrir WhatsApp. El mensaje ya viene escrito. Solo toca Enviar y vuelve aquí.",
       "mobile_title": "Envía el código por WhatsApp",
+      "receiving_hint": "¿Falta un negocio? Necesita su RNC o cédula y la lectura automática activa.",
+      "receiving_title": "Negocios que reciben",
+      "routing_help": "Cada archivo va al negocio cuyo RNC o cédula sale en el documento.",
       "scan_camera": "Abre la cámara de tu teléfono y escanea el código.",
       "scan_return": "Esta pantalla cambia sola cuando llegue.",
       "scan_send": "WhatsApp se abre con el mensaje listo. Toca Enviar.",
@@ -917,6 +931,16 @@
       "number": "Número vinculado",
       "loading": "Leyendo tu vínculo…",
       "linked": "Número que termina en {{last4}}",
+      "linked_date": "Vinculado el {{date}}",
+      "linked_relative": "Vinculado {{relativeTime}}",
+      "reading_notice": "Lo que envíes por WhatsApp se lee con IA para saber a qué negocio va.",
+      "unlink_title": "¿Desvincular el número que termina en {{last4}}?",
+      "unlink_stop": "Ya no recibiremos archivos de ese número.",
+      "unlink_held_one": "El archivo sin negocio se queda aquí hasta que lo asignes o venza.",
+      "unlink_held_other": "Los {{count}} archivos sin negocio se quedan aquí hasta que los asignes o venzan.",
+      "unlink_reading": "Los que se están leyendo terminan y llegan a su negocio o se quedan aquí.",
+      "unlink_no_message": "No le enviaremos ningún mensaje a ese número.",
+      "unlink_empty": "Ya no se aceptarán mensajes nuevos de ese número. Los recibos que ya llegaron siguen en la Bandeja de cada negocio.",
       "new_code": "Obtener otro código",
       "send_steps": "Envía este mensaje desde tu propio WhatsApp al número de Cuadrao. El código sirve una vez y vence pronto.",
       "copy_code": "Copiar código",
@@ -4133,7 +4157,6 @@
       },
       "errors": {
         "accept_uncertain": "No pudimos confirmar la aceptación. Actualiza para comprobar el resultado.",
-        "already_open": "Ya tienes otro negocio abierto. Solo puedes tener uno abierto a la vez.",
         "business_unavailable": "Este negocio no está disponible con tu acceso actual.",
         "close_uncertain": "No pudimos confirmar el cierre. Reintenta para comprobar el resultado.",
         "decline_uncertain": "No pudimos confirmar el rechazo. Actualiza para comprobar el resultado.",
@@ -4184,8 +4207,7 @@
         "ineligible": {
           "account_unavailable": "Esta cuenta no puede recibir el negocio.",
           "email_unconfirmed": "Falta confirmar su correo.",
-          "not_admin": "Primero cambia su acceso a Administrador.",
-          "owns_open_business": "Ya es dueño de otro negocio abierto."
+          "not_admin": "Primero cambia su acceso a Administrador."
         },
         "member": "Nuevo dueño",
         "none_eligible": "Ningún miembro puede recibir el negocio ahora. Revisa el motivo junto a cada persona.",
