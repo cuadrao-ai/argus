@@ -900,6 +900,15 @@
       "expired_message": "This message no longer works.",
       "expired_title": "The code expired",
       "expires_in": "Expires in {{time}}",
+      "held": {
+        "assign": "Assign",
+        "assigned": "File assigned to {{business}}.",
+        "reason": {
+          "no_buyer_rnc": "No buyer RNC",
+          "no_match": "The RNC isn't one of your receiving businesses",
+          "two_matches": "Matches more than one of your businesses"
+        }
+      },
       "held_help": "Waiting for you to choose which business they go to",
       "held_title": "Files with no business",
       "intro_body": "Link your number and send photos or PDFs of invoices and receipts to Cuadrao's number. $t(settings.whatsapp.routing_help)",

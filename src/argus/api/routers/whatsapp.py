@@ -9,7 +9,7 @@ from urllib.parse import quote
 from uuid import UUID
 
 import segno
-from fastapi import APIRouter, Depends, Query, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import PlainTextResponse
 from loguru import logger
@@ -19,7 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from argus.api import state as api_state
 from argus.api.dependencies import current_user, problem
-from argus.api.documents import documents_service
+from argus.api.documents import document_problem, documents_service
 from argus.api.rate_limits import SlidingWindowLimiter
 from argus.api.schemas import User
 from argus.api.whatsapp import (
@@ -34,14 +34,23 @@ from argus.api.whatsapp import (
     whatsapp_receiving_available,
 )
 from argus.domain.business.authority import ActionError
+from argus.domain.business.contracts.deletion import PURGE_AFTER
 from argus.domain.business.contracts.dgii import TaxId
+from argus.domain.ingestion.documents.config import SOURCE_MEDIA_TYPES
+from argus.domain.ingestion.documents.models import DocumentExtractionError
+from argus.domain.ingestion.documents.objects import (
+    IMAGE_MEDIA_TYPES,
+    SourceStorageUnavailable,
+)
+from argus.domain.ingestion.documents.rebuilt import rebuild_image
+from argus.domain.ingestion.documents.service import DocumentServiceError
 from argus.domain.ingestion.whatsapp.ai_consent import (
     AIConsentStore,
     ConsentError,
     accepted_link_disclosure,
     link_disclosure,
 )
-from argus.domain.ingestion.whatsapp.held import held_files
+from argus.domain.ingestion.whatsapp.held import Reason, held_files
 from argus.domain.ingestion.whatsapp.identity import link_message, signature_matches
 from argus.domain.ingestion.whatsapp.payload import PayloadInvalid, parse_delivery
 from argus.domain.ingestion.whatsapp.store import ReplyLanguage
@@ -82,10 +91,34 @@ class LinkCodeResponse(BaseModel):
     qr_data_url: str | None
 
 
-class ReceivingBusiness(BaseModel):
+class HeldBusiness(BaseModel):
     space_id: str
     name: str
+
+
+class ReceivingBusiness(HeldBusiness):
     tax_id: TaxId
+
+
+class HeldFileResponse(BaseModel):
+    id: str
+    reason: Reason
+    reading: bool
+    held_at: datetime
+    expires_at: datetime
+    media_type: str
+    preview_url: str
+
+
+class HeldFilesResponse(BaseModel):
+    files: list[HeldFileResponse]
+    receiving_businesses: list[HeldBusiness]
+
+
+class HeldFileAssignment(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    business_id: UUID
 
 
 class LinkStatusResponse(BaseModel):
@@ -289,6 +322,148 @@ async def create_whatsapp_link_code(
         wa_me_url=url,
         qr_data_url=segno.make_qr(url).png_data_uri(scale=5) if url else None,
     )
+
+
+_PRIVATE = {"Cache-Control": "private, no-store"}
+_Sender = Annotated[WhatsAppSenderContext, Depends(require_whatsapp_sender)]
+
+
+def _held_problem(request: Request, code: str, status: int) -> HTTPException:
+    return problem(
+        request,
+        status_code=status,
+        code=code,
+        title="Held file unavailable",
+        detail=code,
+        headers=_PRIVATE,
+    )
+
+
+@link_router.get("/held-files", response_model=HeldFilesResponse, responses=_UNAVAILABLE)
+def list_held_files(
+    request: Request, response: Response, context: _Sender
+) -> HeldFilesResponse:
+    documents = documents_service()
+    assert documents is not None
+    response.headers.update(_PRIVATE)
+    now = documents.hub.clock()
+    files = [
+        HeldFileResponse(
+            id=item.held.id,
+            reason=item.held.reason,
+            held_at=item.held.held_at,
+            expires_at=item.held.held_at + PURGE_AFTER,
+            media_type=item.draft.media_type,
+            reading=item.draft.read_pending(
+                business_permission=None,
+                lease_until=item.lease_until,
+                now=now,
+            ),
+            preview_url=str(
+                request.app.url_path_for("preview_held_file", held_id=item.held.id)
+            ),
+        )
+        for item in held_files(documents.store).pending_for_user(context.person_id)
+    ]
+    return HeldFilesResponse(
+        files=files,
+        receiving_businesses=[
+            HeldBusiness(space_id=grant.space_id, name=grant.name)
+            for grant in context.runtime.intake.store.eligible_businesses(
+                context.person_id
+            )
+        ],
+    )
+
+
+@link_router.get(
+    "/held-files/{held_id}/preview",
+    response_class=Response,
+    responses={
+        200: {
+            "content": {
+                mime: {"schema": {"type": "string", "format": "binary"}}
+                for mime in ("image/jpeg", "application/pdf")
+            }
+        },
+        404: {
+            "description": "Receiving unavailable, or no pending file for this sender."
+        },
+    },
+)
+def preview_held_file(request: Request, held_id: UUID, context: _Sender) -> Response:
+    documents = documents_service()
+    assert documents is not None
+    files = held_files(documents.store)
+    owner = context.person_id
+    pending = files.pending_for_user(owner, str(held_id))
+    if not pending:
+        raise _held_problem(request, "held_file_unavailable", 404)
+    draft = pending[0].draft
+    key = {"user_id": owner, "connection_id": draft.connection_id}
+    try:
+        download = documents.store.download_source(**key)
+        if download is None and draft.media_type in IMAGE_MEDIA_TYPES:
+            # Unread photos need a metadata-free preview without saving a copy or starting a read.
+            original = documents.store.source(**key)
+            if original is not None:
+                download = ("image/jpeg", rebuild_image(original, draft.media_type))
+    except (SourceStorageUnavailable, DocumentExtractionError) as error:
+        raise document_problem(request, error) from None
+    # Assignment and expiry may have completed during the object download.
+    if download is None or not files.pending_for_user(owner, str(held_id)):
+        raise _held_problem(request, "held_file_unavailable", 404)
+    media_type, content = download
+    return Response(
+        content,
+        media_type=media_type,
+        headers={
+            **_PRIVATE,
+            "X-Content-Type-Options": "nosniff",
+            "Content-Disposition": f'attachment; filename="document.{SOURCE_MEDIA_TYPES[media_type]}"',
+        },
+    )
+
+
+@link_router.post(
+    "/held-files/{held_id}/assign",
+    status_code=204,
+    responses={
+        403: {
+            "description": "business_permission_denied: selected Business is ineligible."
+        },
+        404: {
+            "description": "Receiving unavailable, or no pending file for this sender."
+        },
+        409: {"description": "document_busy or held_file_already_assigned."},
+    },
+)
+def assign_held_file(
+    request: Request,
+    held_id: UUID,
+    body: HeldFileAssignment,
+    context: _Sender,
+) -> Response:
+    documents = documents_service()
+    assert documents is not None
+    try:
+        documents.adopt(
+            user_id=context.person_id,
+            held_id=str(held_id),
+            business_id=str(body.business_id),
+        )
+    except DocumentServiceError as error:
+        status = {
+            "business_permission_denied": 403,
+            "held_file_unavailable": 404,
+            "held_file_already_assigned": 409,
+            "document_busy": 409,
+            "whatsapp_unavailable": 404,
+        }.get(error.code)
+        if status is not None:
+            raise _held_problem(request, error.code, status) from None
+        raise document_problem(request, error) from None
+    return Response(status_code=204, headers=_PRIVATE)
 
 
 @link_router.get("/link", response_model=LinkStatusResponse, responses=_UNAVAILABLE)

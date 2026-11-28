@@ -8155,6 +8155,25 @@ Santo Domingo day. Other unlinked text is silent.
   The document worker reads queued files and sends due grouped failure replies.
   Post-read replies are off until W11. The webhook query string is redacted
   from access logs.
+- GET `/api/v1/whatsapp/held-files` returns the signed-in sender's pending files,
+  newest first. Each row includes `id`, `reason`, `reading`, `held_at`, `expires_at`,
+  `media_type` and a relative `preview_url`. The expiration is seven days after
+  receipt. `receiving_businesses` contains the current eligible destinations with
+  their `space_id` and `name`. A sender can recover files after unlinking.
+- GET `/api/v1/whatsapp/held-files/{held_id}/preview` serves a PDF or a
+  metadata-free JPEG to the sender while the file is held. An unknown, assigned,
+  expired or other sender's file returns 404 `held_file_unavailable`. Listing
+  and preview use `Cache-Control: private, no-store`. Preview leaves the
+  draft, extraction job and read budget unchanged.
+- POST `/api/v1/whatsapp/held-files/{held_id}/assign` takes `{business_id}`.
+  Adoption rechecks the sender's grant and returns 204 after the file reaches
+  the selected Business. A completed read travels with the file. Its original
+  charge moves to the Business in the same transaction when capacity permits.
+  At the Business limit the sender retains the charge. A lost grant returns
+  403 `business_permission_denied` and a read in progress returns 409
+  `document_busy`. Retrying a completed assignment to the same eligible
+  Business returns 204. A different eligible destination for that file
+  returns 409 `held_file_already_assigned`.
 - POST `/api/v1/whatsapp/link-codes` (registered-only) takes `{language, disclosure_token}`.
   The token must match the notice returned for this person and language. A stale
   notice returns 409 `whatsapp_consent_disclosure_stale`. Success returns 201

@@ -84,10 +84,10 @@ for (const width of [1440, 390]) {
       const rows = page.getByRole("list", { name: words.receiving_title }).getByRole("listitem");
       await expect(rows).toHaveCount(3);
       await expect(rows.nth(1)).toContainText("Cédula 001-1234567-8");
-      await expect(page.getByRole("region", { name: words.held_title })).toContainText("3");
+      const held = page.getByRole("button", { name: words.held_title, exact: true });
+      await expect(held).toContainText("3");
       await expect(page.getByRole("button", { name: words.unlink })).toBeVisible();
       await expect(page.locator('time[datetime="2026-11-12T12:00:00Z"]')).toBeVisible();
-      const held = page.getByRole("region", { name: words.held_title });
       const heading = page.getByRole("heading", { name: words.linked.replace("{{last4}}", "4821") });
       const card = heading.locator("xpath=ancestor::section[1]");
       await expect(card.getByRole("button")).toHaveCount(0);
@@ -108,6 +108,17 @@ for (const width of [1440, 390]) {
         expect(Math.abs(sentence.y + sentence.height / 2 - action.y - action.height / 2)).toBeLessThan(1);
       }
       await capture("linked");
+      const files = Array.from({ length: count }, (_, index) => ({
+        id: `held-${index}`, reason: "no_buyer_rnc", reading: false, media_type: "application/pdf",
+        held_at: "2026-11-23T10:00:00Z", expires_at: "2026-11-30T10:00:00Z",
+        preview_url: `/api/v1/whatsapp/held-files/held-${index}/preview`,
+      }));
+      await page.route("**/api/v1/whatsapp/held-files", route =>
+        route.fulfill({ json: { files, receiving_businesses: businesses } }));
+      await held.click();
+      await expect(page.getByRole("list", { name: words.held_title }).getByRole("listitem")).toHaveCount(3);
+      await page.keyboard.press("Escape");
+      await expect(unlink).toBeVisible();
       await unlink.click();
       const confirm = page.getByRole("alertdialog");
       await expect(confirm.getByRole("button", { name: words.cancel })).toBeFocused();
