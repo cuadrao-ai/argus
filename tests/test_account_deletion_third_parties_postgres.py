@@ -134,7 +134,6 @@ def test_a_wrong_or_missing_key_never_drops_a_live_token(lane, world):  # noqa: 
         SqlAuthAdmin(),
         FakeRevoker(unreadable={"plaid"}),
         box=SecretBox(secrets.token_bytes(32)),
-        clock=lambda: NOW + timedelta(hours=1),
     )
     _age(a)
     assert wrong.resume_pending()["pending"] == 1
@@ -178,14 +177,9 @@ def test_the_recording_fake_is_never_done_outside_tests(lane, world, monkeypatch
         service.force_complete_step(**forced, confirm=True)
     with pytest.raises(AccountDeletionRejected, match="step_not_pending"):
         service.force_complete_step(**{**forced, "step": "plaid"}, confirm=True)
-    later = _service(
-        lane,
-        SqlAuthAdmin(),
-        allow_fake=False,
-        clock=lambda: NOW + timedelta(days=7, minutes=1),
-    )
+    _age(a, timedelta(days=7, minutes=1), step="analytics")
     # Without confirm it only reports.
-    assert later.force_complete_step(**forced) == {
+    assert service.force_complete_step(**forced) == {
         "step": "analytics",
         "pending_days": 7,
         "last_error": "analytics_adapter_unconfigured",
@@ -194,10 +188,10 @@ def test_the_recording_fake_is_never_done_outside_tests(lane, world, monkeypatch
     }
     assert _run(run_id)[4]["analytics"] == "pending"
     assert "forced" not in _run(run_id)[4]
-    report = later.force_complete_step(**forced, confirm=True)
+    report = service.force_complete_step(**forced, confirm=True)
     assert report["forced"] is True
     assert report["revoke_attempt"] == "analytics_adapter_unconfigured"
-    assert later.delete_account(user_id=a).status == "done"
+    assert service.delete_account(user_id=a).status == "done"
     steps = _run(run_id)[4]
     assert steps["analytics"] == "operator_forced"
     assert steps["forced"]["analytics"]["reason"] == "PostHog adapter not shipped"
@@ -366,16 +360,14 @@ def test_an_apple_step_pending_a_week_needs_an_operator(lane, world):  # noqa: F
         assert not [
             x for x in alerts if x.get("metric") == "account_deletion.needs_operator"
         ]
-        later = NOW + timedelta(days=7, minutes=1)
+        _age(a, timedelta(days=7, minutes=1), step="apple")
+        service = _service(lane, SqlAuthAdmin(), apple=apple.service)
         with pytest.raises(AccountDeletionIncomplete):
-            _service(
-                lane, SqlAuthAdmin(), apple=apple.service, clock=lambda: later
-            ).delete_account(user_id=a)
+            service.delete_account(user_id=a)
         needs = [
             x for x in alerts if x.get("metric") == "account_deletion.needs_operator"
         ]
         assert needs and needs[0]["step"] == "apple" and needs[0]["pending_days"] == 7
-        service = _service(lane, SqlAuthAdmin(), apple=apple.service, clock=lambda: later)
         with pytest.raises(ValueError):
             service.force_complete_step(
                 user_id=a, step="apple", reason="", operator="ops"
@@ -505,12 +497,8 @@ def test_document_sources_are_erased_before_the_account_delete(lane, world):  # 
             ),
             level="ERROR",
         )
-        week = _service(
-            lane,
-            SqlAuthAdmin(),
-            source_objects=_StorageDown(),
-            clock=lambda: NOW + timedelta(days=7, minutes=1),
-        )
+        _age(a, timedelta(days=7, minutes=1), step="storage")
+        week = _service(lane, SqlAuthAdmin(), source_objects=_StorageDown())
         try:
             with pytest.raises(AccountDeletionIncomplete):
                 week.delete_account(user_id=a)

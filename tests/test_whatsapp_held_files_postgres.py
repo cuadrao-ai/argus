@@ -385,7 +385,7 @@ def test_account_deletion_removes_held_rows_drafts_objects(desk, lane):
     row = upload(desk)
     desk.files.budget().charge(desk.owner, desk.now)
     service = deletion._service(
-        lane, deletion.SqlAuthAdmin(), source_objects=desk.objects, clock=lambda: desk.now
+        lane, deletion.SqlAuthAdmin(), source_objects=desk.objects
     )
     assert service.delete_account(user_id=desk.owner).status == "done"
     with desk.pool.connection() as db:
