@@ -4156,7 +4156,6 @@
       },
       "errors": {
         "accept_uncertain": "No pudimos confirmar la aceptación. Actualiza para comprobar el resultado.",
-        "already_open": "Ya tienes otro negocio abierto. Solo puedes tener uno abierto a la vez.",
         "business_unavailable": "Este negocio no está disponible con tu acceso actual.",
         "close_uncertain": "No pudimos confirmar el cierre. Reintenta para comprobar el resultado.",
         "decline_uncertain": "No pudimos confirmar el rechazo. Actualiza para comprobar el resultado.",
@@ -4207,8 +4206,7 @@
         "ineligible": {
           "account_unavailable": "Esta cuenta no puede recibir el negocio.",
           "email_unconfirmed": "Falta confirmar su correo.",
-          "not_admin": "Primero cambia su acceso a Administrador.",
-          "owns_open_business": "Ya es dueño de otro negocio abierto."
+          "not_admin": "Primero cambia su acceso a Administrador."
         },
         "member": "Nuevo dueño",
         "none_eligible": "Ningún miembro puede recibir el negocio ahora. Revisa el motivo junto a cada persona.",

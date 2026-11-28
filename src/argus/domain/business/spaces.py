@@ -150,13 +150,28 @@ class PostgresSpaceStore:
             if user is None:
                 raise BusinessLifecycleError("business_record_not_found")
             require_ownership_admission(connection, person_id)
-            created = connection.execute(
-                "insert into public.spaces (kind, name, created_by, current_owner_id, country, currency)"
-                " values ('business', %s, %s, %s, %s, %s)"
-                " on conflict (current_owner_id) where kind = 'business' and closed_at is null and business_legacy_default"
-                " do nothing returning id::text, name, created_by::text, country, currency",
-                (name, person_id, person_id, country, business_country(country).currency),
+            # The lock on the person's row above makes this check and insert one step.
+            started = connection.execute(
+                "select 1 from public.spaces where current_owner_id = %s and kind = 'business'"
+                " and closed_at is null and business_legacy_default limit 1",
+                (person_id,),
             ).fetchone()
+            created = (
+                None
+                if started
+                else connection.execute(
+                    "insert into public.spaces (kind, name, created_by, current_owner_id, country, currency)"
+                    " values ('business', %s, %s, %s, %s, %s)"
+                    " returning id::text, name, created_by::text, country, currency",
+                    (
+                        name,
+                        person_id,
+                        person_id,
+                        country,
+                        business_country(country).currency,
+                    ),
+                ).fetchone()
+            )
             if created is not None:
                 # The owner's grant is born with the space, in the same transaction.
                 ensure_owner_grant(connection, created[0], person_id)

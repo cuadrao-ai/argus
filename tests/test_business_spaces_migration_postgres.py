@@ -136,14 +136,23 @@ def sender_link(db, person: str, sender_hash: bytes) -> str:  # noqa: ANN001
     )
 
 
-def test_one_open_business_space_per_owner(db, users) -> None:  # noqa: ANN001
+def test_a_person_owns_two_open_business_spaces(db, users) -> None:  # noqa: ANN001
     owner = users["owner"]
     first = owned_space(db, owner)
-    with _raises(db, psycopg.errors.UniqueViolation, "spaces_one_open_business_idx"):
-        owned_space(db, owner)
-    db.execute("update public.spaces set closed_at = now() where id = %s", (first,))
+    db.execute(
+        "update public.spaces set created_at = created_at - interval '1 day' where id = %s",
+        (first,),
+    )
     second = owned_space(db, owner)
     assert second != first
+    assert _one(
+        db,
+        "select count(*) from public.spaces where current_owner_id = %s"
+        " and kind = 'business' and closed_at is null",
+        (owner,),
+    ) == 2
+    assert str(_one(db, "select public.business_space_of(%s)", (owner,))) == first
+    db.execute("update public.spaces set closed_at = now() where id = %s", (first,))
     assert str(_one(db, "select public.business_space_of(%s)", (owner,))) == second
     assert _one(db, "select public.business_space_of(%s)", (users["other"],)) is None
 

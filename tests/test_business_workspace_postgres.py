@@ -23,6 +23,16 @@ def pool():
         yield pool
 
 
+def test_concurrent_first_creation_starts_one_business(pool, users):
+    store = PostgresSpaceStore(pool)
+    actor = users["owner"]
+    with ThreadPoolExecutor(max_workers=4) as workers:
+        results = list(workers.map(lambda _: store.create(actor, "Zulu"), range(8)))
+    assert sum(created for _, created in results) == 1
+    assert len({space.id for space, _ in results}) == 1
+    assert len(PostgresAccessStore(pool).spaces_for(actor)) == 1
+
+
 def test_concurrent_creation_and_legacy_bootstrap_preserve_default(pool, users):
     store = PostgresSpaceStore(pool)
     actor = users["owner"]

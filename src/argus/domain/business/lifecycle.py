@@ -275,20 +275,6 @@ class PostgresBusinessLifecycle:
                 reopened_from = closed_at
                 if closed_at is not None and now >= closed_at + REOPEN_WINDOW:
                     raise BusinessLifecycleError("business_reopen_expired")
-                if connection.execute(
-                    "select 1 from public.spaces where current_owner_id=%s and id<>%s"
-                    " and kind='business' and closed_at is null and business_legacy_default"
-                    " and (select business_legacy_default from public.spaces where id=%s)",
-                    (
-                        connection.execute(
-                            "select current_owner_id from public.spaces where id=%s",
-                            (space_id,),
-                        ).fetchone()[0],
-                        space_id,
-                        space_id,
-                    ),
-                ).fetchone():
-                    raise BusinessLifecycleError("business_already_open")
                 closed_at = None
             if action == "close":
                 connection.execute(

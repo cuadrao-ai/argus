@@ -117,7 +117,6 @@ def test_command_uses_authenticated_actor_and_preserves_key(client, action):
         ("invalid_idempotency_key", 422),
         ("business_record_not_found", 404),
         ("business_reopen_expired", 409),
-        ("business_already_open", 409),
         ("idempotency_conflict", 409),
     ],
 )
