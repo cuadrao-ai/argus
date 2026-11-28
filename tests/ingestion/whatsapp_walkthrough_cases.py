@@ -38,7 +38,11 @@ from argus.domain.ingestion.secrets import SecretBox
 from argus.domain.ingestion.whatsapp import document_step, reply_groups_postgres
 from argus.domain.ingestion.whatsapp.held import HeldFile, held_files
 from argus.domain.ingestion.whatsapp.media import FetchedMedia
-from argus.domain.ingestion.whatsapp.reply_groups import BatchOutcomes, ReplyGroup
+from argus.domain.ingestion.whatsapp.reply_groups import (
+    BatchOutcomes,
+    ReplyAttempt,
+    ReplyGroup,
+)
 from argus.domain.ingestion.whatsapp.reply_groups_postgres import PostgresReplyGroups
 from faker import Faker
 from loguru import logger
@@ -806,6 +810,13 @@ async def test_window_during_final_database_authorization(
     w = signed
     [cid] = await w.forward(Receipt("Último-segundo", w.desk.rnc["A"], None))
     assert await w.read(cid) == "prepared"
+    await w.post(
+        fixture(
+            "document_forwarded.json",
+            id="wamid.WINDOW-FAILED",
+            document={"id": "999000000000008", "filename": "archivo.gif", "mime_type": "image/gif"},
+        )
+    )
     checked_at = []
     outcomes = reply_groups_postgres._outcomes
 
@@ -813,10 +824,13 @@ async def test_window_during_final_database_authorization(
         result = outcomes(db, group)
         # Claim reads outcomes before inserting the attempt. Authorization reads them
         # again with that committed attempt locked, immediately before dispatch.
-        if db.execute(
-            "select 1 from public.whatsapp_reply_attempts where sender_hash=%s",
+        reservation = db.execute(
+            "select d.reserved_count from public.whatsapp_reply_attempts a "
+            "join public.whatsapp_reply_days d using (sender_hash,day) where a.sender_hash=%s",
             (group.sender_hash,),
-        ).fetchone():
+        ).fetchone()
+        if reservation:
+            assert reservation == (1,)
             checked_at.append(w.desk.clock.now - group.last_sent_at)
             w.desk.clock.now += timedelta(seconds=delay_seconds)
         return result
@@ -825,10 +839,50 @@ async def test_window_during_final_database_authorization(
     await w.sweep(24 * 60 * 60 - 1)
     assert checked_at == [timedelta(hours=24, seconds=-1)]
     await w.sweep()
-    assert w.replies == (
-        ["Recibimos tu factura, gracias.\nYa está en la Bandeja:\n• Colmado Doña Rosa: 1"]
-        if delay_seconds < 1 else []
+    sent = delay_seconds < 1
+    expected = (
+        "Recibimos 2 facturas, gracias.\nYa está en la Bandeja:\n• Colmado Doña Rosa: 1\n"
+        "Disculpa, no pudimos recibir este archivo.\n• archivo.gif\nEnvíalo como foto o PDF."
     )
+    assert w.replies == ([expected] if sent else [])
+    with w.desk.pool.connection() as db:
+        assert db.execute(
+            "select sent_count,reserved_count from public.whatsapp_reply_days where owner_id=%s",
+            (w.desk.ana,),
+        ).fetchall() == [(int(sent), 0)]
+        assert db.execute(
+            "select 1 from public.whatsapp_reply_attempts where owner_id=%s "
+            "union all select 1 from public.whatsapp_reply_groups where owner_id=%s",
+            (w.desk.ana, w.desk.ana),
+        ).fetchall() == []
+
+
+@pytest.mark.asyncio
+async def test_window_drop_releases_daily_guidance(
+    signed: SignedForward, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    w = signed
+    await w.post(fixture("audio_message.json"))
+    authorize = w.upkeep.store.authorized
+
+    def expire(attempt: ReplyAttempt, *, now: datetime) -> bool:
+        assert authorize(attempt, now=now)
+        assert now - attempt.group.last_sent_at == timedelta(hours=24, seconds=-1)
+        w.desk.clock.now += timedelta(seconds=1)
+        return True
+
+    with monkeypatch.context() as patch:
+        patch.setattr(w.upkeep.store, "authorized", expire)
+        await w.sweep(24 * 60 * 60 - 1)
+    assert w.replies == []
+    with w.desk.pool.connection() as db:
+        assert db.execute(
+            "select guidance_reserved from public.whatsapp_reply_days where owner_id=%s",
+            (w.desk.ana,),
+        ).fetchall() == [(False,)]
+    await w.post(fixture("audio_message.json", id="wamid.FRESH-GUIDANCE"))
+    await w.sweep()
+    assert len(w.replies) == 1
 
 
 @pytest.mark.asyncio
