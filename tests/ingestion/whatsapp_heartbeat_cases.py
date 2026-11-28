@@ -292,8 +292,8 @@ async def a_mismatched_staged_scope_remains_retryable(world: World) -> None:
         with pytest.raises(LookupError, match="whatsapp_staged_source_missing"):
             await world.deliver(image(media, message_id))
     pending = world.record(message_id)
-    assert pending.status == "received" and pending.connection_id is None
-    world.clock.now = pending.claim_until + timedelta(seconds=1)
+    assert pending.status == "failed" and pending.connection_id is None
+    assert pending.claim_until is None
     await world.deliver(image(media, message_id))
     assert world.record(message_id).status == "captured"
     assert len(world.captures(world.alice)) == 1

@@ -41,14 +41,16 @@ class DocumentWorker:
         service: DocumentsService,
         settings: DocumentJobSettings,
         upkeep: Callable[[], object] | None = None,
+        scheduled_upkeep: Callable[[], datetime | None] | None = None,
     ) -> None:
         self.service, self.settings, self.upkeep = service, settings, upkeep
+        self.scheduled_upkeep = scheduled_upkeep
         self.reads: set[asyncio.Task[str]] = set()
 
     async def run(self, stop: asyncio.Event) -> None:
         jobs = PreparationJobs(self.service)
         sweeper = asyncio.create_task(
-            sweep_forever(jobs, self.settings.sweep_seconds, self.upkeep)
+            sweep_forever(jobs, self.settings.sweep_seconds, self.upkeep, self.scheduled_upkeep)
         )
         logger.info("Document worker started max_reads={}", self.settings.max_reads)
         delay = POLL_SECONDS

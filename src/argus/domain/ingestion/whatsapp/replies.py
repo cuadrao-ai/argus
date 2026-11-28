@@ -17,150 +17,97 @@ from typing import Any, Protocol
 import httpx
 
 from argus.domain.ingestion.whatsapp.media import GRAPH_HOST
-from argus.domain.ingestion.whatsapp.store import SENDER_LINK_REVOKED
 
-# Founder-approved copy, October 8, 2026 (docs/specs/lanes/cuadrao-whatsapp-intake.md).
-# "captured_reading" approved October 28, 2026: the acknowledgement of a receipt
-# read inline right after it carries no link; the follow-up carries it.
-_RESEND = (
-    "No pudimos guardarlo. Envíalo de nuevo.",
-    "We couldn't save it. Please send it again.",
-)
-
+# Iris's approved WhatsApp copy (2026-11-27). Each pair is Spanish, English.
 REPLIES: dict[str, tuple[str, str]] = {
-    "captured": (
-        "Recibido. Revísalo aquí: {link}",
-        "Received. Review it here: {link}",
+    "batch_received": (
+        "Recibimos {n} facturas, gracias.",
+        "We received {n} invoices, thank you.",
     ),
-    "captured_reading": (
-        "Recibido. Lo estoy leyendo.",
-        "Received. I'm reading it.",
+    "batch_received_one": (
+        "Recibimos tu factura, gracias.",
+        "We received your invoice, thank you.",
     ),
-    "read_ready": (
-        "Ya leímos tu recibo. Revísalo y confírmalo en Cuadrao: {link}",
-        "We read your receipt. Review and confirm it in Cuadrao: {link}",
+    "batch_in_inbox": ("Ya están en la Bandeja:", "They're in your Inbox:"),
+    "batch_in_inbox_one": ("Ya está en la Bandeja:", "It's in your Inbox:"),
+    "batch_business_line": ("• {business}: {n}", "• {business}: {n}"),
+    "batch_more_businesses": (
+        "y {k} negocios más: {n} facturas",
+        "and {k} more businesses: {n} invoices",
     ),
-    "read_summary": (
-        "Leí: {merchant}, {amount} {currency}. Revísalo antes de guardar: {link}",
-        "I read: {merchant}, {amount} {currency}. Review it before saving: {link}",
+    "batch_more_businesses_one": (
+        "y 1 negocio más: {n} facturas",
+        "and 1 more business: {n} invoices",
     ),
-    "read_attention": (
-        "No pudimos leer bien tu recibo. Ábrelo en Cuadrao para completarlo: {link}",
-        "We couldn't read your receipt clearly. Open it in Cuadrao to finish it: {link}",
+    "batch_held": (
+        "{n} quedaron sin negocio. Te esperan en Cuadrao.",
+        "{n} have no business yet. They're waiting for you in Cuadrao.",
+    ),
+    "batch_held_one": (
+        "1 quedó sin negocio. Te espera en Cuadrao.",
+        "1 has no business yet. It's waiting for you in Cuadrao.",
+    ),
+    "batch_duplicates": ("{n} ya las teníamos.", "We already had {n}."),
+    "batch_duplicates_one": ("1 ya la teníamos.", "We already had 1."),
+    "batch_reading_follow": (
+        "Las demás se están leyendo. Puedes seguirlas en Cuadrao.",
+        "The rest are still being read. You can follow them in Cuadrao.",
+    ),
+    "batch_reading_follow_one": (
+        "La otra se está leyendo. Puedes seguirla en Cuadrao.",
+        "The other one is still being read. You can follow it in Cuadrao.",
+    ),
+    "batch_read_tomorrow": (
+        "Hoy llegamos al límite de lecturas. {n} se leerán mañana y no hace falta enviarlas de nuevo.",
+        "We reached today's reading limit. {n} will be read tomorrow, and you don't need to send them again.",
     ),
     "duplicate": (
-        "Ya lo teníamos. Revísalo aquí: {link}",
-        "We already had this one. Review it here: {link}",
+        "Esta ya la teníamos, gracias. No se guardó dos veces.",
+        "We already had this one, thank you. It wasn't saved twice.",
+    ),
+    "not_received_header": (
+        "Disculpa, no pudimos recibir {n} archivos:",
+        "Sorry, we couldn't receive {n} files:",
+    ),
+    "not_received_header_one": (
+        "Disculpa, no pudimos recibir este archivo.",
+        "Sorry, we couldn't receive this file.",
+    ),
+    "not_received_closing": ("Envíalos como foto o PDF.", "Send them as a photo or PDF."),
+    "not_received_closing_one": (
+        "Envíalo como foto o PDF.",
+        "Send it as a photo or PDF.",
+    ),
+    "not_received_more": ("• y {n} más", "• and {n} more"),
+    "whatsapp_receipt_missing": (
+        "Hola. Por aquí no respondemos mensajes, solo recibimos facturas.",
+        "Hi. We don't answer messages here, we only receive invoices.",
+    ),
+    "send_here": (
+        "Envía aquí la foto o el PDF de tus facturas.",
+        "Send a photo or PDF of your invoices here.",
     ),
     "linked": (
-        "Listo, este WhatsApp quedó conectado. "
-        "Envía aquí la foto o el PDF de tus recibos.",
-        "Done, this WhatsApp is connected. Send a photo or PDF of your receipts here.",
+        "Listo, este WhatsApp quedó conectado.",
+        "Done, this WhatsApp is connected.",
     ),
     "whatsapp_link_code_invalid": (
         "Ese código venció o ya se usó. Crea uno nuevo en Cuadrao.",
         "That code has expired or was already used. Create a new one in Cuadrao.",
     ),
-    "whatsapp_sender_not_linked": (
-        "Este número aún no está vinculado a un negocio en Cuadrao. "
-        "Pídele al administrador el código para vincularlo.",
-        "This number isn't linked to a business in Cuadrao yet. "
-        "Ask the administrator for the code to link it.",
-    ),
-    "whatsapp_receipt_missing": (
-        "Aquí solo recibimos recibos. Para todo lo demás usa Cuadrao: {link}",
-        "We only take receipts here. For everything else use Cuadrao: {link}",
-    ),
-    "whatsapp_message_unsupported": (
-        "Por ahora no podemos recibir audios, stickers ni videos. "
-        "Envía la foto o el PDF del recibo.",
-        "We can't take voice notes, audio, stickers or videos yet. "
-        "Send a photo or PDF of the receipt.",
-    ),
-    "whatsapp_agent_unavailable": (
-        "No pude entender tu mensaje esta vez. Envíalo de nuevo, por favor.",
-        "I couldn't process your message this time. Please send it again.",
-    ),
-    "whatsapp_ai_consent_missing": (
-        "Todavía no has dado permiso para que Cuadrao lea tus mensajes con IA. "
-        "Puedes activarlo en tu perfil, en App y luego WhatsApp.",
-        "You haven't given permission for AI to read your messages yet. "
-        "You can turn it on in your profile menu, under App, then WhatsApp.",
-    ),
-    "whatsapp_media_unsupported": (
-        "Solo podemos recibir fotos JPG o PNG y archivos PDF.",
-        "We can only take JPG or PNG photos and PDF files.",
-    ),
-    "whatsapp_media_too_large": (
-        "El archivo pesa más de {limit_mb} MB. Envía una foto o un PDF más pequeño.",
-        "The file is larger than {limit_mb} MB. Send a smaller photo or PDF.",
-    ),
-    "whatsapp_media_invalid": (
-        "No pudimos leer este archivo. Envíalo como foto o PDF.",
-        "We couldn't open that file. Send another photo or PDF of the receipt.",
-    ),
-    "whatsapp_media_expired": _RESEND,
-    "whatsapp_media_unavailable": _RESEND,
-    "whatsapp_capture_failed": _RESEND,
-    # Approved by Iris, October 30, 2026: a photo lost after its claim lapsed
-    # and every bounded retry failed. Sent once, to the linked sender only.
-    "whatsapp_photo_lost": (
-        "No pude guardar tu foto. ¿Me la envías otra vez?",
-        "I couldn't save your photo. Can you send it again?",
+    "daily_cap": (
+        "Por hoy no avisaremos más sobre archivos que no podamos recibir. Las facturas válidas siguen entrando.",
+        "We won't send more alerts today about files we can't receive. Valid invoices keep coming in.",
     ),
 }
 
 
-_SAME_REPLY = {
-    "whatsapp_media_untrusted": "whatsapp_media_unavailable",
-    "whatsapp_processing_failed": "whatsapp_capture_failed",
-    # The link ended while the receipt was in flight: answer as for any
-    # number that is not linked.
-    SENDER_LINK_REVOKED: "whatsapp_sender_not_linked",
-}
-
-
-def reply_key(
-    status: str,
-    error_code: str | None,
-    *,
-    duplicate: bool = False,
-    reading: bool = False,
-) -> str:
-    """Captured and linked answer by status; everything else by its error code."""
-
-    if status == "captured" and duplicate:
-        return "duplicate"
-    if status == "captured" and reading:
-        return "captured_reading"
-    key = error_code if status in ("rejected", "failed") and error_code else status
-    return _SAME_REPLY.get(key, key)
-
-
-def inbox_url(app_origin: str) -> str:
-    return f"{app_origin.rstrip('/')}/biz"
-
-
-def review_url(app_origin: str, connection_id: str) -> str:
-    return f"{app_origin.rstrip('/')}/biz?receipt={connection_id}"
-
-
-def compose_reply(
-    key: str,
-    *,
-    language: str | None,
-    link: str | None = None,
-    limit_mb: int = 10,
-    read: dict[str, str] | None = None,
-) -> str:
-    """One language only: English when the owner's language is en, else Spanish."""
-
-    spanish, english = REPLIES[key]
-    body = (english if language == "en" else spanish).format(
-        link=link or "", limit_mb=limit_mb, **(read or {})
-    )
-    # A reply that ends in a link, sent without one, ends as a plain sentence.
-    return body if link or not body.endswith(": ") else body[:-2] + "."
+def compose_reply(key: str, *, language: str | None, **values: str | int) -> str:
+    index = 1 if language == "en" else 0
+    body = REPLIES[key][index].format(**values)
+    if key in ("linked", "whatsapp_receipt_missing"):
+        return f"{body} {REPLIES['send_here'][index]}"
+    return body
 
 
 def reply_payload(*, to: str, in_reply_to: str | None, body: str) -> dict[str, Any]:

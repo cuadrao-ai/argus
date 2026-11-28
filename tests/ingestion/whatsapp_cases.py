@@ -202,10 +202,8 @@ async def linked_image_is_saved_unqueued_and_replay_converges(world: World) -> N
     }
     assert world.store.captured_connections(destination_owner_id=world.bob) == set()
     assert RefusingExtractor.calls == 0
-    assert world.transport.bodies()[-1] == (
-        f"Recibido. Revísalo aquí: {ORIGIN}/biz?receipt={connection_id}"
-    )
-    assert len(world.transport.sent) == 2
+    assert world.transport.read_ids() == ["wamid.CASE-IMAGE"]
+    assert len(world.transport.bodies()) == 1
     assert world.graph.hosts() == {"graph.facebook.com", "lookaside.fbsbx.com"}
 
 
@@ -435,16 +433,14 @@ async def english_owner_gets_english_only(world: World) -> None:
     world.graph.media["700000000000115"] = Media(RECEIPT_PNG, "image/png")
     await world.deliver(image("700000000000115", "wamid.CASE-ENGLISH"))
     await world.deliver(image("700000000000115", "wamid.CASE-ENGLISH-AGAIN"))
-    [connection_id] = world.captures(world.alice)
-    link = f"{ORIGIN}/biz?receipt={connection_id}"
+    assert len(world.captures(world.alice)) == 1
+    assert world.transport.read_ids() == ["wamid.CASE-ENGLISH"]
     assert world.transport.bodies() == [
-        "Done, this WhatsApp is connected. Send a photo or PDF of your receipts here.",
-        f"Received. Review it here: {link}",
-        f"We already had this one. Review it here: {link}",
+        "Done, this WhatsApp is connected. Send a photo or PDF of your invoices here."
     ]
 
 
-async def same_bytes_in_a_new_message_get_the_duplicate_reply(world: World) -> None:
+async def same_bytes_in_a_new_message_keep_one_file_and_read_status(world: World) -> None:
     await world.link(world.alice, ALICE_PHONE)
     world.graph.media["700000000000116"] = Media(RECEIPT_PNG, "image/png")
     await world.deliver(image("700000000000116", "wamid.CASE-FIRST-COPY"))
@@ -452,14 +448,11 @@ async def same_bytes_in_a_new_message_get_the_duplicate_reply(world: World) -> N
     await world.deliver(image("700000000000116", "wamid.CASE-SECOND-COPY"))
 
     [connection_id] = world.captures(world.alice)
-    link = f"{ORIGIN}/biz?receipt={connection_id}"
     for message_id in ("wamid.CASE-FIRST-COPY", "wamid.CASE-SECOND-COPY"):
         record = world.record(message_id)
         assert (record.status, record.connection_id) == ("captured", connection_id)
-    assert world.transport.bodies()[1:] == [
-        f"Recibido. Revísalo aquí: {link}",
-        f"Ya lo teníamos. Revísalo aquí: {link}",
-    ]
+    assert world.transport.bodies()[1:] == []
+    assert world.transport.read_ids() == ["wamid.CASE-FIRST-COPY"]
 
 
 async def a_live_claim_blocks_a_concurrent_redelivery(world: World) -> None:
@@ -622,6 +615,7 @@ async def no_reply_outside_the_service_window(world: World) -> None:
     )
     assert world.record("wamid.CASE-OLD-MESSAGE").status == "captured"
     assert len(world.transport.sent) == replies
+    world.graph.media["700000000000114"] = Media(RECEIPT_PNG + b"recent", "image/png")
     await world.deliver(
         image("700000000000114", "wamid.CASE-RECENT"),
         sent_at=world.clock.now - SERVICE_WINDOW + timedelta(minutes=1),
@@ -825,9 +819,7 @@ async def a_linked_sender_text_is_never_a_link_attempt(world: World) -> None:
     link = world.store.destination_link(destination_owner_id=world.alice)
     assert link.last4 == "1234"
     assert world.store.destination_link(destination_owner_id=world.bob) is None
-    assert set(world.transport.bodies()[-3:]) == {
-        f"We only take receipts here. For everything else use Cuadrao: {ORIGIN}/biz"
-    }
+    assert world.transport.bodies()[1:] == []
 
 
 async def an_unlinked_sender_links_with_a_code_anywhere_in_the_text(
@@ -929,7 +921,7 @@ async def media_urls_off_the_meta_allowlist_are_never_fetched(world: World) -> N
     assert world.captures(world.alice) == []
 
 
-async def voice_audio_and_stickers_get_one_unsupported_reply(world: World) -> None:
+async def unsupported_messages_record_their_type_and_wait_for_the_worker(world: World) -> None:
     await world.link(world.alice, ALICE_PHONE, "en")
     for number, kind in enumerate(("audio", "sticker", "video")):
         body = fixture("audio_message.json", id=f"wamid.CASE-KIND-{number}", type=kind)
@@ -943,9 +935,8 @@ async def voice_audio_and_stickers_get_one_unsupported_reply(world: World) -> No
     await world.deliver(
         fixture("audio_message.json", id="wamid.CASE-KIND-0", type="audio")
     )
-    unsupported = "We can't take voice notes, audio, stickers or videos yet."
-    sent = [body for body in world.transport.bodies() if unsupported in body]
-    assert len(sent) == 3
+    assert world.transport.bodies()[1:] == []
+    assert world.transport.read_ids() == []
     assert world.captures(world.alice) == []
 
     before = len(world.transport.sent)
@@ -980,9 +971,9 @@ CASES = (
     slow_processing_times_out_as_failed_and_recovers,
     revoking_also_ends_unused_codes,
     no_reply_outside_the_service_window,
-    same_bytes_in_a_new_message_get_the_duplicate_reply,
+    same_bytes_in_a_new_message_keep_one_file_and_read_status,
     forwarded_and_captioned_messages_capture_like_a_direct_send,
-    voice_audio_and_stickers_get_one_unsupported_reply,
+    unsupported_messages_record_their_type_and_wait_for_the_worker,
     a_caption_is_kept_verbatim_as_source_text,
     a_link_revoked_before_settling_keeps_no_capture,
     the_same_number_relinked_mid_capture_cannot_settle_the_old_delivery,

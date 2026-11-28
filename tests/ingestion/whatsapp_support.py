@@ -146,7 +146,14 @@ class RecordingTransport:
         self.sent.append(payload)
 
     def bodies(self) -> list[str]:
-        return [payload["text"]["body"] for payload in self.sent]
+        return [
+            payload["text"]["body"] for payload in self.sent if payload.get("type") == "text"
+        ]
+
+    def read_ids(self) -> list[str]:
+        return [
+            payload["message_id"] for payload in self.sent if payload.get("status") == "read"
+        ]
 
 
 class RefusingExtractor(StubPreparation):

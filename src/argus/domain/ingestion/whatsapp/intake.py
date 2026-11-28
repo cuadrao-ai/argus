@@ -43,10 +43,7 @@ from argus.domain.ingestion.whatsapp.replies import (
     ReplyFailed,
     ReplyTransport,
     compose_reply,
-    inbox_url,
-    reply_key,
     reply_payload,
-    review_url,
 )
 from argus.domain.ingestion.whatsapp.reply_groups import (
     FAILURE_REASONS,
@@ -54,6 +51,7 @@ from argus.domain.ingestion.whatsapp.reply_groups import (
     ReplyGroupCodec,
     suppressed,
 )
+from argus.domain.ingestion.whatsapp.reply_groups_postgres import CaptureForReply
 from argus.domain.ingestion.whatsapp.store import (
     RETRYABLE,
     CapturePublisher,
@@ -62,6 +60,7 @@ from argus.domain.ingestion.whatsapp.store import (
     Settlement,
     WhatsAppStore,
 )
+from argus.domain.ingestion.whatsapp.store_postgres import PostgresWhatsAppStore
 
 CLAIM_SECONDS = 90
 # Processing must end, and settle, while its claim is still held.
@@ -215,16 +214,15 @@ class WhatsAppIntake:
         max_bytes: int,
         send_enabled: Callable[[], bool] = lambda: True,
         reply_codec: ReplyGroupCodec | None = None,
-        reply_group_wait_seconds: int = 120,
+        reply_group_wait_seconds: int = 60,
     ) -> None:
         self.store, self.keys, self.media = store, keys, media
         self.destination, self.clock = destination, clock
-        self.transport, self.app_origin, self.max_bytes = transport, app_origin, max_bytes
+        self.transport = transport
         self.processing_seconds: float = PROCESSING_SECONDS
         self.renew_seconds: float = RENEW_SECONDS
         self.send_enabled = send_enabled
         self.reply_codec = reply_codec
-        self.reply_group_wait_seconds = reply_group_wait_seconds
 
     def issue_code(
         self, *, destination_owner_id: str, reply_language: ReplyLanguage, disclosure: str
@@ -266,6 +264,16 @@ class WhatsAppIntake:
             )
         in_flight = False
         first_error: Exception | None = None
+        arrived_at = self.clock()
+        unlinked_files: dict[str, list[MediaMessage]] = {}
+        if len(delivery.messages) > 1 and isinstance(self.store, PostgresWhatsAppStore):
+            by_sender: dict[str, list[MediaMessage]] = {}
+            for message in delivery.messages:
+                if isinstance(message, MediaMessage):
+                    by_sender.setdefault(message.sender, []).append(message)
+            for sender, files in by_sender.items():
+                if not await asyncio.to_thread(self._admit_files, files, arrived_at):
+                    unlinked_files[sender] = files
         for message in delivery.messages:
             try:
                 claimed = await self._claim(message)
@@ -273,12 +281,30 @@ class WhatsAppIntake:
                     in_flight = not await self._process(claimed) or in_flight
                 else:
                     in_flight = not claimed or in_flight
+                if isinstance(message, TextMessage) and message.sender in unlinked_files:
+                    # A link code in this envelope can authorize the remaining files.
+                    if await asyncio.to_thread(
+                        self._admit_files, unlinked_files[message.sender], arrived_at
+                    ):
+                        del unlinked_files[message.sender]
             except Exception as error:
                 first_error = first_error or error
         if first_error is not None:
             raise first_error
         if in_flight:
             raise DeliveryInFlight()
+
+    def _admit_files(self, files: list[MediaMessage], arrived_at: datetime) -> bool:
+        assert isinstance(self.store, PostgresWhatsAppStore)
+        link = self.store.sender_link(sender_hash=self.keys.sender(files[0].sender))
+        if link is None:
+            return False
+        if self.reply_codec is None:
+            raise RuntimeError("whatsapp_reply_grouping_unavailable")
+        self.store.reply_groups.start_envelope(
+            [self.reply_codec.pending(file, link) for file in files], arrived_at
+        )
+        return True
 
     async def _claim(self, message: InboundMessage) -> _Held | bool:
         """Commit this message's claim. A ``_Held`` means this worker owns it;
@@ -336,7 +362,7 @@ class WhatsAppIntake:
         deadline = monotonic() + self.processing_seconds
         work = asyncio.create_task(self._decide(message, sender))
         try:
-            settlement = await _bounded(work, self.processing_seconds)
+            settlement, pending = await _bounded(work, self.processing_seconds)
         except Exception as error:
             code = (
                 "whatsapp_processing_timeout"
@@ -359,22 +385,27 @@ class WhatsAppIntake:
             raise
         await _stop(lease, heartbeat)
         held = lease.held
-        failure = None
-        if isinstance(message, MediaMessage) and settlement.error_code in FAILURE_REASONS:
-            if self.reply_codec is None:
-                raise RuntimeError("whatsapp_reply_grouping_unavailable")
-            link = await asyncio.to_thread(self.store.sender_link, sender_hash=sender)
-            if link is not None and link.authorizes(settlement):
-                failure = self.reply_codec.failure(
-                    message, link, now=self.clock(), wait=self.reply_group_wait_seconds
-                )
-        settled = await self._settle(
-            key, held, settlement, reply_failure=failure, deadline=deadline
-        )
+        try:
+            settled = await self._settle(
+                key, held, settlement, reply_failure=pending, deadline=deadline
+            )
+        except Exception:
+            # A rolled-back capture is no longer running. Release only this attempt's
+            # lease; a concurrent settlement or redelivery keeps its own outcome.
+            if pending is not None:
+                try:
+                    await self._settle(
+                        key, held, Settlement("failed", error_code="whatsapp_settlement_failed"),
+                        deadline=deadline,
+                    )
+                except Exception as error:
+                    log.warning("WhatsApp claim release failed", failure_mode=type(error).__name__)
+            raise
         if settled is None:
             log.warning("WhatsApp message claim lost before settling")
             return False
         settlement = settled
+        await self._reply(message, settlement, log)
         if settlement.report_arrival:
             self.destination.report_arrival(settlement)
         log.info(
@@ -382,13 +413,12 @@ class WhatsAppIntake:
             status=settlement.status,
             error_code=settlement.error_code,
         )
-        if failure is not None:
+        if settlement.error_code in FAILURE_REASONS:
             log.info(
                 "WhatsApp failed file grouped",
                 event="whatsapp_file_failure",
                 reason=FAILURE_REASONS[settlement.error_code],
             )
-        await self._reply(message, settlement, log)
         return True
 
     async def _renew(self, key: bytes, lease: _Lease) -> bool:
@@ -442,35 +472,41 @@ class WhatsAppIntake:
                     settlement=settlement,
                     now=self.clock,
                     reply_failure=reply_failure,
-                    publisher=self.destination if settlement.status == "captured" else None,
+                    publisher=(
+                        CaptureForReply(self.destination)
+                        if settlement.status == "captured"
+                        else None
+                    ),
                     deadline=deadline,
                 )
             )
         )
 
-    async def _decide(self, message: InboundMessage, sender: bytes) -> Settlement:
+    async def _decide(
+        self, message: InboundMessage, sender: bytes
+    ) -> tuple[Settlement, PendingFailure | None]:
         link = await asyncio.to_thread(self.store.sender_link, sender_hash=sender)
         if link is None:
-            return await self._unlinked(message, sender)
-        owner, language = link.destination_owner_id, link.reply_language
+            return await self._unlinked(message, sender), None
+        owner = link.destination_owner_id
+        if self.reply_codec is None:
+            raise RuntimeError("whatsapp_reply_grouping_unavailable")
+        pending = self.reply_codec.pending(message, link)
         if isinstance(message, TextMessage):
-            return Settlement(
-                "rejected",
-                owner,
-                error_code="whatsapp_receipt_missing",
-                reply_language=language,
-                sender_link_id=link.id,
+            settlement = Settlement(
+                "rejected", owner, error_code="whatsapp_receipt_missing"
             )
-        if isinstance(message, UnsupportedMessage):
-            return Settlement(
-                "rejected",
-                owner,
-                error_code="whatsapp_message_unsupported",
-                reply_language=language,
-                sender_link_id=link.id,
+        elif isinstance(message, UnsupportedMessage):
+            settlement = Settlement(
+                "rejected", owner, error_code="whatsapp_message_unsupported"
             )
-        settlement = await self._capture(message, owner)
-        return replace(settlement, reply_language=language, sender_link_id=link.id)
+        else:
+            if isinstance(self.store, PostgresWhatsAppStore):
+                await asyncio.to_thread(self.store.reply_groups.start_file, pending)
+            settlement = await self._capture(message, owner)
+        return replace(
+            settlement, reply_language=link.reply_language, sender_link_id=link.id
+        ), pending
 
     async def _unlinked(self, message: InboundMessage, sender: bytes) -> Settlement:
         """A sender with no active link can only link: no word is read for
@@ -546,42 +582,32 @@ class WhatsAppIntake:
         settlement: Settlement,
         log,  # noqa: ANN001
     ) -> None:
-        resolved_key = reply_key(
-            settlement.status,
-            settlement.error_code,
-            duplicate=settlement.duplicate,
-            reading=settlement.reading,
-        )
-        if resolved_key == "whatsapp_sender_not_linked":
+        if self.transport is None or not self.send_enabled():
             return
+        if self.clock() - message.sent_at >= SERVICE_WINDOW:
+            return
+        if settlement.status == "captured" and not settlement.duplicate:
+            resolved_key = "mark_read"
+        elif settlement.status == "linked":
+            resolved_key = "linked"
+        elif settlement.error_code == "whatsapp_link_code_invalid":
+            resolved_key = settlement.error_code
+        else:
+            return
+
         sender = self.keys.sender(message.sender)
         if resolved_key != "whatsapp_link_code_invalid":
             current = await asyncio.to_thread(self.store.sender_link, sender_hash=sender)
             if current is None or not current.authorizes(settlement):
                 suppressed("unknown_sender", sender)
                 return
-        if settlement.error_code in FAILURE_REASONS:
-            return
-        if self.transport is None or not self.send_enabled():
-            return
-        if self.clock() - message.sent_at > SERVICE_WINDOW:
-            log.info("WhatsApp acknowledgement skipped: outside the service window")
-            return
-        url = None
-        if settlement.status == "captured":
-            if not self.app_origin:
-                log.warning("WhatsApp acknowledgement skipped: no app origin")
-                return
-            url = review_url(self.app_origin, settlement.connection_id or "")
-        elif settlement.error_code == "whatsapp_receipt_missing" and self.app_origin:
-            url = inbox_url(self.app_origin)
-        body = compose_reply(
-            resolved_key,
-            language=settlement.reply_language,
-            link=url,
-            limit_mb=self.max_bytes // (1024 * 1024),
-        )
-        if resolved_key in ("linked", "whatsapp_link_code_invalid"):
+        if resolved_key == "mark_read":
+            payload = {
+                "messaging_product": "whatsapp",
+                "status": "read",
+                "message_id": message.id,
+            }
+        else:
             reserved = await asyncio.to_thread(
                 self.store.reserve_unlinked_reply,
                 sender_hash=sender,
@@ -591,10 +617,15 @@ class WhatsAppIntake:
             if not reserved:
                 suppressed("unlinked_daily_limit", sender)
                 return
-        try:
-            await self.transport.send(
-                reply_payload(to=message.sender, in_reply_to=message.id, body=body)
+            payload = reply_payload(
+                to=message.sender,
+                in_reply_to=message.id,
+                body=compose_reply(resolved_key, language=settlement.reply_language),
             )
+        if self.clock() - message.sent_at >= SERVICE_WINDOW:
+            return
+        try:
+            await self.transport.send(payload)
         except ReplyFailed as error:
             reason = (
                 error.args[0] if error.args and isinstance(error.args[0], str) else ""
@@ -623,6 +654,6 @@ class WhatsAppIntake:
         else:
             log.info(
                 "WhatsApp acknowledgement sent",
-                event="whatsapp_reply",
+                event="whatsapp_mark_read" if resolved_key == "mark_read" else "whatsapp_reply",
                 reply_key=resolved_key,
             )

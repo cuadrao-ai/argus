@@ -3510,6 +3510,31 @@ and identifies the person who linked the number.
 Row level security is enabled with no policies and every client grant revoked.
 Proven by `tests/test_whatsapp_intake_postgres.py`.
 
+### WhatsApp forward replies
+
+Migrations `20261128052939_whatsapp_outcome_replies.sql` and
+`20261128053351_whatsapp_reply_membership.sql` extend four service-role tables.
+
+- `whatsapp_reply_groups.id` identifies one forward or guidance group for a sender and link.
+  `kind`, `member_count`, `last_arrival` and `send_after` govern its next worker check.
+  The worker can close a forward after one quiet minute when its files have outcomes.
+  At three minutes from the last arrival, a pending download or unfinished read counts as in progress.
+- `whatsapp_inbound_messages.reply_group_id` records each file’s membership before download.
+  It survives consumption of the group, so a late save or redelivery cannot create another reply.
+  A failed settlement releases its own claim and stays retryable without a receipt.
+  The capture transaction records `capture_duplicate`. The worker reads the saved connection,
+  extraction, held-file state and current Business grants to compose the summary.
+- `whatsapp_reply_attempts` reserves a dispatch. Its `member_count` covers the group.
+  A null `day` permits a summary without a daily failure charge. A known drop releases its
+  reservation. An uncertain send retains its charge and is never replayed automatically.
+- `whatsapp_reply_days` counts sent and reserved failure notices per sender and UTC day.
+  `guidance_reserved` separately limits guidance to one per Santo Domingo day.
+
+`whatsapp_reply_groups_forward_idx` supports finding the sender’s open group.
+`whatsapp_inbound_reply_members_idx` locates its members, and
+`whatsapp_inbound_pending_sender_idx` covers claimed arrivals. The membership migration
+backfills `reply_group_id` from the first migration’s temporary `member_keys` array and drops it.
+
 ### Business date floor (#2175)
 
 `supabase/migrations/20261115060328_business_dates_floor.sql` owns the fixed

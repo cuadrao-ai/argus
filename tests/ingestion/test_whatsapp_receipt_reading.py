@@ -119,14 +119,14 @@ def _status(world: cases.World, connection_id: str) -> str:
 
 
 @pytest.mark.asyncio
-async def test_worker_read_does_not_send_a_second_reply() -> None:
+async def test_finishing_the_read_sends_no_per_file_reply() -> None:
     world, extractor, _ = await _world(on=True)
     connection_id = await _deliver(world, "wamid.READ-ON")
     assert _status(world, connection_id) == "queued"
     assert extractor.calls == 0
     replies = world.transport.bodies()
-    assert len(replies) == 2
-    assert replies[-1] == "Recibido. Lo estoy leyendo."
+    assert len(replies) == 1
+    assert world.transport.read_ids() == ["wamid.READ-ON"]
     await read_receipt(world.documents, world.alice, connection_id)
     assert _status(world, connection_id) == "review_ready"
     assert extractor.calls == 1
@@ -139,10 +139,8 @@ async def test_with_the_switch_off_the_receipt_waits_unread_and_no_follow_up() -
     connection_id = await _deliver(world, "wamid.READ-OFF")
     assert _status(world, connection_id) == "saved"
     assert extractor.calls == 0
-    assert len(world.transport.sent) == 2
-    assert world.transport.bodies()[-1] == (
-        f"Recibido. Revísalo aquí: {cases.ORIGIN}/biz?receipt={connection_id}"
-    )
+    assert len(world.transport.bodies()) == 1
+    assert world.transport.read_ids() == ["wamid.READ-OFF"]
 
 
 @pytest.mark.asyncio
@@ -158,7 +156,8 @@ async def test_same_bytes_resent_in_a_new_message_keep_one_receipt_and_one_read(
     assert extractor.calls == 1
     assert _status(world, connection_id) == "review_ready"
     assert world.record("wamid.READ-RESENT").connection_id == connection_id
-    assert world.transport.bodies()[-1].startswith("Ya lo teníamos.")
+    assert world.transport.read_ids() == ["wamid.READ-FIRST"]
+    assert len(world.transport.bodies()) == 1
 
 
 @pytest.mark.asyncio
@@ -206,4 +205,5 @@ async def test_a_switch_turned_off_while_the_source_is_read_stops_before_the_pro
     connection_id = await _send(world, "wamid.READ-LATE")
     assert extractor.calls == 0
     assert _status(world, connection_id) == "saved"
-    assert len(world.transport.bodies()) == 2
+    assert len(world.transport.bodies()) == 1
+    assert world.transport.read_ids() == ["wamid.READ-LATE"]

@@ -218,8 +218,11 @@ def _assert_captured(webhook: Webhook, content: bytes) -> tuple:
         connection_id,
     )
     [reply] = webhook.replies
-    assert reply["context"] == {"message_id": MESSAGE_ID}
-    assert reply["to"] == ALICE_PHONE
+    assert reply == {
+        "messaging_product": "whatsapp",
+        "status": "read",
+        "message_id": MESSAGE_ID,
+    }
     return (draft, job, binding, inbound, reply)
 
 

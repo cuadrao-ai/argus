@@ -70,10 +70,10 @@ async def serve() -> None:
         )
         replies = FailureReplyUpkeep(PostgresReplyGroups(pool), clock=service.hub.clock)
         upkeep = in_turn(
-            expiry.tick, ReadResume(service).tick, replies.cleanup, replies.send_due,
+            expiry.tick, ReadResume(service).tick, replies.cleanup,
             HeldFileExpiry(pool, objects, clock=service.hub.clock).tick,
         )
-        await DocumentWorker(service, settings, upkeep).run(stop)
+        await DocumentWorker(service, settings, upkeep, scheduled_upkeep=replies.send_due).run(stop)
 
 
 def main() -> None:

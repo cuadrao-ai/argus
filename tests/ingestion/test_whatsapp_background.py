@@ -50,7 +50,7 @@ async def test_delivery_waits_for_each_message_before_claiming_the_next() -> Non
         "captured",
         "captured",
     ]
-    assert [item["context"]["message_id"] for item in world.transport.sent[1:]] == [
-        first_id,
-        second_id,
+    assert world.transport.sent[1:] == [
+        {"messaging_product": "whatsapp", "status": "read", "message_id": key}
+        for key in (first_id, second_id)
     ]

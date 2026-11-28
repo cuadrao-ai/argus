@@ -7,6 +7,7 @@ from uuid import UUID, uuid4
 import pytest
 from argus.api.documents import DocumentContext, require_saved_document_context
 from argus.api.main import app
+from argus.api.whatsapp import whatsapp_runtime
 from argus.domain.business.spaces import PostgresSpaceStore
 from argus.domain.ingestion.documents.service import DocumentServiceError
 from argus.domain.ingestion.whatsapp.held import held_files, is_held
@@ -138,7 +139,9 @@ async def test_multi_business_duplicate_retains_one_private_file_and_read(
     assert (await webhook.post(resent)).status_code == 200
     assert held_files(webhook.documents.store).list_for_user(webhook.owner) == [held]
     assert webhook.drafts() == [(connection, draft, job, binding)]
-    assert len(webhook.replies) == 2
+    assert webhook.replies == [
+        {"messaging_product": "whatsapp", "status": "read", "message_id": MESSAGE_ID},
+    ]
 
     # A newly unique grant cannot turn a resend into a second Business upload.
     turn_reading(
@@ -312,8 +315,11 @@ async def test_second_grant_does_not_reread_a_previous_direct_receipt(webhook: W
     assert (await webhook.post(resent)).status_code == 200
     assert webhook.drafts() == [before]
     assert held_files(webhook.documents.store).list_for_user(webhook.owner) == []
-    assert webhook.replies[-1]["text"]["body"].startswith("Ya lo teníamos.")
-    assert original in webhook.replies[-1]["text"]["body"]
+    resent_key = whatsapp_runtime().intake.keys.message("wamid.SECOND-GRANT")
+    assert webhook.store.inbound(resent_key).connection_id == original
+    assert webhook.replies == [
+        {"messaging_product": "whatsapp", "status": "read", "message_id": MESSAGE_ID},
+    ]
 
 
 @pytest.mark.asyncio
@@ -341,9 +347,8 @@ async def test_vanished_private_stage_redelivers_instead_of_acknowledging(
         patch.setattr(webhook.documents, "upload", remove_stage)
         assert (await webhook.post(raw)).status_code == 503
     assert not held_files(webhook.documents.store).list_for_user(webhook.owner)
-    webhook.clock.now = webhook.store.inbound(webhook.key).claim_until + timedelta(
-        seconds=1
-    )
+    retryable = webhook.store.inbound(webhook.key)
+    assert retryable.status == "failed" and retryable.claim_until is None
     assert (await webhook.post(raw)).status_code == 200
     [held] = held_files(webhook.documents.store).list_for_user(webhook.owner)
     assert webhook.store.inbound(webhook.key).connection_id == held.connection_id
@@ -353,8 +358,6 @@ async def test_vanished_private_stage_redelivers_instead_of_acknowledging(
 async def test_revoked_sender_keeps_a_shared_receipt_another_sender_already_published(
     webhook: Webhook, users, monkeypatch
 ):
-    from argus.api.whatsapp import whatsapp_runtime
-
     from tests.ingestion.whatsapp_link_support import NOTICE
     from tests.ingestion.whatsapp_support import BOB_PHONE
 
@@ -420,8 +423,6 @@ async def test_revoked_sender_keeps_a_shared_receipt_another_sender_already_publ
 async def test_resend_after_assigned_business_loses_eligibility_reuses_the_receipt(
     webhook: Webhook, monkeypatch, sole_business: bool, caption: str | None
 ):
-    from argus.api.whatsapp import whatsapp_runtime
-
     from tests.document_reads_support import read_receipt
     from tests.test_whatsapp_receipt_read_postgres import Extractor
 
@@ -502,7 +503,7 @@ async def test_resend_after_assigned_business_loses_eligibility_reuses_the_recei
         pending = webhook.store.inbound(
             whatsapp_runtime().intake.keys.message(message_id)
         )
-        webhook.clock.now = pending.claim_until + timedelta(seconds=1)
+        assert pending.status == "failed" and pending.claim_until is None
     assert (await webhook.post(raw)).status_code == 200
     first, second = files.list_for_user(webhook.owner)
     assert first.id == original.id and first.assigned_space_id == a.space_id
@@ -526,10 +527,11 @@ async def test_resend_after_assigned_business_loses_eligibility_reuses_the_recei
         user_id=webhook.owner, connection_id=inbound.connection_id
     )
     assert (received.filename, received.source_text) == ("resent.png", caption)
+    replies_before_duplicate = webhook.replies.copy()
     resent = delivery("wamid.DUPLICATE-AFTER-A-LOSS", "duplicate.png", None)
     assert (await webhook.post(resent)).status_code == 200
     assert len(files.list_for_user(webhook.owner)) == 2
-    assert webhook.replies[-1]["text"]["body"].startswith("Ya lo teníamos.")
+    assert webhook.replies == replies_before_duplicate
 
     if not sole_business:
         from argus.api import whatsapp

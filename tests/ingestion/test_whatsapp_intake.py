@@ -26,7 +26,6 @@ from argus.domain.ingestion.whatsapp.payload import (
 from argus.domain.ingestion.whatsapp.replies import (
     REPLIES,
     compose_reply,
-    reply_key,
     reply_payload,
 )
 from argus.domain.ingestion.whatsapp.senders import SenderBusinesses
@@ -109,9 +108,9 @@ async def test_unlinked_text_replay_never_reserves_a_reply() -> None:
 @pytest.mark.asyncio
 async def test_acknowledgement_event_has_only_the_reply_key_and_hashed_refs() -> None:
     world = _world()
-    await world.link(world.alice, cases.ALICE_PHONE)
+    issued = world.issue(world.alice)
     message_id = "wamid.LOG-ACK"
-    delivery = fixture("text_message.json", id=message_id, text="hola")
+    delivery = fixture("text_link_code.json", id=message_id, text=f"CUADRAO {issued.code}")
     events = []
     sink = logger.add(
         lambda message: events.append(message.record["extra"]),
@@ -126,33 +125,18 @@ async def test_acknowledgement_event_has_only_the_reply_key_and_hashed_refs() ->
     assert events == [
         {
             "event": "whatsapp_reply",
-            "reply_key": "whatsapp_receipt_missing",
+            "reply_key": "linked",
             "message_ref": ref(world.keys.message(message_id)),
             "sender_ref": ref(world.keys.sender(cases.ALICE_PHONE)),
         }
     ]
 
 
-def test_the_unlinked_line_is_the_approved_text() -> None:
-    assert compose_reply("whatsapp_sender_not_linked", language="es-419") == (
-        "Este número aún no está vinculado a un negocio en Cuadrao. "
-        "Pídele al administrador el código para vincularlo."
-    )
-
-
-def test_blocked_file_copy_matches_approved_spanish_and_preserves_english() -> None:
-    assert compose_reply("whatsapp_media_invalid", language="es-419") == (
-        "No pudimos leer este archivo. Envíalo como foto o PDF."
-    )
-    assert compose_reply("whatsapp_media_invalid", language="en") == (
-        "We couldn't open that file. Send another photo or PDF of the receipt."
-    )
-
-
 @pytest.mark.parametrize("count", [1, 5, 12])
-def test_grouped_copy_quotes_one_and_lists_earliest_three(count: int) -> None:
+def test_failure_reply_quotes_one_and_lists_up_to_three_samples(count: int) -> None:
     from argus.domain.ingestion.secrets import SecretBox
     from argus.domain.ingestion.whatsapp.reply_groups import (
+        BatchOutcomes,
         ReplyAttempt,
         ReplyGroup,
         ReplyGroupCodec,
@@ -173,7 +157,7 @@ def test_grouped_copy_quotes_one_and_lists_earliest_three(count: int) -> None:
             "image/png",
             f"factura_{index}.pdf",
         )
-        samples.append(codec.failure(message, link, now=at, wait=120).sample)
+        samples.append(codec.pending(message, link).sample)
     group = ReplyGroup(
         world.keys.sender(cases.ALICE_PHONE),
         world.alice,
@@ -181,19 +165,22 @@ def test_grouped_copy_quotes_one_and_lists_earliest_three(count: int) -> None:
         count,
         samples[:3],
         at,
-        at + timedelta(seconds=120),
+        at + timedelta(minutes=1),
     )
-    payload = codec.payload(ReplyAttempt(str(uuid4()), group, False))
+    outcomes = BatchOutcomes(
+        not_received=count, failure_keys=tuple(sample["key"] for sample in samples[:3])
+    )
+    payload = codec.payload(ReplyAttempt(str(uuid4()), group, False, outcomes=outcomes))
     if count == 1:
         assert payload["context"] == {"message_id": "wamid.GROUP0"}
         assert (
             payload["text"]["body"]
-            == "No pudimos leer este archivo. Envíalo como foto o PDF."
+            == "Disculpa, no pudimos recibir este archivo.\n• factura_0.pdf\nEnvíalo como foto o PDF."
         )
     else:
         assert "context" not in payload
         assert payload["text"]["body"] == (
-            f"No pudimos leer {count} archivos:\n• factura_0.pdf\n• factura_1.pdf\n• factura_2.pdf\n"
+            f"Disculpa, no pudimos recibir {count} archivos:\n• factura_0.pdf\n• factura_1.pdf\n• factura_2.pdf\n"
             f"• y {count - 3} más\nEnvíalos como foto o PDF."
         )
 
@@ -247,8 +234,9 @@ async def test_capture_failure_retries_once_before_grouping(fails_twice: bool) -
     world.intake.destination.capture = flaky_capture
     await world.deliver(cases.image("700000000000991", "wamid.RETRY"))
     assert attempts == 2
-    assert len(world.store.reply_failures) == int(fails_twice)
-    assert len(world.transport.sent) == int(not fails_twice)
+    assert len(world.store.reply_failures) == 1
+    assert world.transport.read_ids() == ([] if fails_twice else ["wamid.RETRY"])
+    assert world.transport.bodies() == []
     assert world.record("wamid.RETRY").status == (
         "rejected" if fails_twice else "captured"
     )
@@ -348,53 +336,18 @@ def test_code_candidates_are_structure_only() -> None:
     assert code_candidates("ABCD2345 abcd2345 EFGH6789") == ("ABCD2345", "EFGH6789")
 
 
-def test_every_outcome_code_has_a_reply_without_long_dashes() -> None:
-    codes = {
-        "captured",
-        "duplicate",
-        "linked",
-        "whatsapp_link_code_invalid",
-        "whatsapp_sender_not_linked",
-        "whatsapp_receipt_missing",
-        "whatsapp_message_unsupported",
-        "whatsapp_ai_consent_missing",
-        "whatsapp_agent_unavailable",
-        "whatsapp_media_unsupported",
-        "whatsapp_media_too_large",
-        "whatsapp_media_invalid",
-        "whatsapp_media_expired",
-        "whatsapp_media_unavailable",
-        "whatsapp_media_untrusted",
-        "whatsapp_capture_failed",
-        "whatsapp_processing_failed",
-    }
-    for code in codes:
-        status = code if code in ("captured", "linked") else "rejected"
-        assert reply_key(status, None if status != "rejected" else code) in REPLIES
-    assert not any(
-        "—" in line or "–" in line for pair in REPLIES.values() for line in pair
-    )
+def test_all_reply_templates_are_link_free_and_have_no_long_dashes() -> None:
+    for pair in REPLIES.values():
+        for line in pair:
+            assert all(marker not in line for marker in ("—", "–", "{link}", "://"))
 
 
 def test_reply_uses_one_language_spanish_unless_the_owner_is_english() -> None:
-    url = "https://app.test/biz?receipt=abc"
-    spanish = "Recibido. Revísalo aquí: https://app.test/biz?receipt=abc"
-    assert compose_reply("captured", language="es-419", link=url) == spanish
-    assert compose_reply("captured", language=None, link=url) == spanish
-    assert compose_reply("captured", language="en", link=url) == (
-        "Received. Review it here: https://app.test/biz?receipt=abc"
-    )
-    assert compose_reply("whatsapp_media_too_large", language="en") == (
-        "The file is larger than 10 MB. Send a smaller photo or PDF."
-    )
-    assert reply_key("captured", None, duplicate=True) == "duplicate"
-    assert reply_key("captured", None, reading=True) == "captured_reading"
-    assert reply_key("captured", None, duplicate=True, reading=True) == "duplicate"
-    assert compose_reply("captured_reading", language="es-419") == (
-        "Recibido. Lo estoy leyendo."
-    )
-    assert compose_reply("captured_reading", language="en") == (
-        "Received. I'm reading it."
+    spanish = "Esta ya la teníamos, gracias. No se guardó dos veces."
+    assert compose_reply("duplicate", language="es-419") == spanish
+    assert compose_reply("duplicate", language=None) == spanish
+    assert compose_reply("duplicate", language="en") == (
+        "We already had this one, thank you. It wasn't saved twice."
     )
     assert reply_payload(to="15550101234", in_reply_to="wamid.X", body="Hola") == {
         "messaging_product": "whatsapp",
@@ -421,18 +374,6 @@ def test_trusted_download_url_is_https_on_a_meta_cdn_host_only() -> None:
         assert not trusted_download_url(url), url
 
 
-def test_a_reply_that_ends_in_a_link_ends_as_a_sentence_without_one() -> None:
-    assert compose_reply("whatsapp_receipt_missing", language="es-419") == (
-        "Aquí solo recibimos recibos. Para todo lo demás usa Cuadrao."
-    )
-    assert (
-        compose_reply(
-            "whatsapp_receipt_missing", language="en", link="https://app.test/biz"
-        )
-        == "We only take receipts here. For everything else use Cuadrao: https://app.test/biz"
-    )
-
-
 @pytest.mark.parametrize(
     "text",
     [
@@ -444,14 +385,13 @@ def test_a_reply_that_ends_in_a_link_ends_as_a_sentence_without_one() -> None:
     ],
 )
 @pytest.mark.asyncio
-async def test_any_text_from_a_linked_owner_gets_the_same_one_reply(text: str) -> None:
+async def test_linked_text_waits_for_guidance_whatever_the_text_says(text: str) -> None:
     world = _world()
     await world.link(world.alice, cases.ALICE_PHONE)
     await world.deliver(fixture("text_message.json", id="wamid.ANY", text=text))
     assert world.record("wamid.ANY").error_code == "whatsapp_receipt_missing"
-    assert world.transport.bodies()[-1] == (
-        f"Aquí solo recibimos recibos. Para todo lo demás usa Cuadrao: {cases.ORIGIN}/biz"
-    )
+    assert world.transport.bodies()[1:] == []
+    assert len(world.store.reply_failures) == 1
 
 
 @pytest.mark.asyncio
@@ -469,7 +409,7 @@ async def test_relinked_number_does_not_receive_an_acknowledgement_for_the_previ
     world = _world()
     await world.link(world.alice, ALICE_PHONE)
     settle = world.store.settle
-    before = world.transport.bodies()
+    before = world.transport.sent.copy()
     issued = world.issue(world.bob)
 
     def reassign_after_capture(**kwargs):
@@ -487,4 +427,4 @@ async def test_relinked_number_does_not_receive_an_acknowledgement_for_the_previ
     world.graph.media["700000000000201"] = Media(RECEIPT_PNG, "image/png")
     await world.deliver(cases.image("700000000000201", "wamid.AFTER-TRANSFER-ACK"))
     assert world.record("wamid.AFTER-TRANSFER-ACK").status == "captured"
-    assert world.transport.bodies() == before
+    assert world.transport.sent == before
