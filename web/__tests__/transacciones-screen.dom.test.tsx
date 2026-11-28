@@ -1,3 +1,4 @@
+import { assertDialogSheetFit } from "./helpers/assert-dialog-sheet-fit";
 import assert from "node:assert/strict";
 import { sampleRecordsPreferences } from "@/components/business-app/transacciones/sample-records-preferences";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, mock, test } from "bun:test";
@@ -1196,6 +1197,7 @@ for (const enabled of [false, true]) for (const width of [1440, 390]) test(`${en
   try {
     await page.click(trigger);
     const panel = document.querySelector('[data-testid="records-export-panel"]'); assert.ok(panel, "the production RecordsExportPanel opens");
+    if (width === 390) assertDialogSheetFit();
     assert.equal(document.querySelectorAll('[role="dialog"]').length, 1); assert.equal(Boolean(document.querySelector('[data-testid="records-export-dialog"]')), width === 1440);
     assert.equal(document.querySelector<HTMLButtonElement>('[data-testid="records-export-download"]')?.disabled, true); assert.deepEqual(requests, [], "sample data never reaches a live export endpoint");
     await page.key(panel, "Escape"); await page.settle(() => !document.querySelector('[data-testid="records-export-panel"]'), "closed export"); await page.unmount();
