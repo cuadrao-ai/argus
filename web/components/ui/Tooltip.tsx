@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { useOverlayBackDismiss } from "@/components/layout/useOverlayBackDismiss";
 import { useOverlayLayer } from "@/components/layout/overlayStack";
 import { createPortal } from "react-dom";
 
@@ -80,8 +81,10 @@ export function Tooltip({ content, children, side = "right", inlineExplanation =
     setOpen(false);
     setPlacement(null);
   }, []);
+  const explanationOpen = open && inlineExplanation;
+  useOverlayBackDismiss({ isOpen: explanationOpen, overlayId: tooltipId, onDismiss: hide });
   useOverlayLayer({
-    isOpen: open && inlineExplanation, overlayId: tooltipId, containerRef: triggerRef,
+    isOpen: explanationOpen, overlayId: tooltipId, containerRef: triggerRef,
     onEscape: hide, onOutsidePointerDown: event => {
       if (!tipRef.current?.contains(event.target as Node)) hide();
     },

@@ -143,6 +143,29 @@ for (const width of [1440, 390]) {
       await expect(confirm).toContainText(spanish.settings.whatsapp.unlink_empty);
       await expect(confirm.getByRole("listitem")).toHaveCount(0);
       await confirm.screenshot({ path: info.outputPath(`whatsapp-empty-confirm-${width}-${theme}.png`), style: FREEZE_CSS });
+      if (width === 390) {
+        await openSettings();
+        await expect(heading).toBeVisible();
+        const session = await page.context().newCDPSession(page);
+        const currentEntry = async () => {
+          const history = await session.send("Page.getNavigationHistory");
+          return history.entries[history.currentIndex].id;
+        };
+        const settingsEntry = await currentEntry();
+        await trigger.tap();
+        await expect(explanation).toBeVisible();
+        await page.goBack();
+        await expect(explanation).toHaveCount(0);
+        await expect(heading).toBeVisible();
+        expect(await currentEntry()).toBe(settingsEntry);
+        await page.goBack();
+        await expect(heading).toHaveCount(0);
+        await expect(page.getByTestId("settings-nav-whatsapp")).toBeVisible();
+        await page.goBack();
+        await expect(page.getByTestId("settings-window")).toHaveCount(0);
+        await expect(page.getByTestId("header-profile-trigger")).toBeVisible();
+        await session.detach();
+      }
       expect(observed.errors).toEqual([]);
     });
   });
