@@ -44,6 +44,8 @@ on:
       - web/components/money/MoneyInput.tsx
       - web/components/settings/CopyCodeButton.tsx
       - web/components/settings/SettingsSurface.tsx
+      - web/components/settings/WhatsAppHeldFilePreview.tsx
+      - web/components/settings/WhatsAppHeldFiles.tsx
       - web/components/settings/WhatsAppLinkModal.tsx
       - web/components/sidebar/SidebarNavButton.tsx
       - web/components/sidebar/pointerAffordances.module.css

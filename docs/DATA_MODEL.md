@@ -3771,14 +3771,17 @@ row-level security is as before.
 `20261025223500_business_workspace_persistence.sql` adds
 `spaces.business_legacy_default`, `business_workspace_revision`,
 `business_provided_details`, and `business_appearance`. Existing open and historical
-rows retain the default marker. The unique open default index is scoped to marked
-rows and `current_owner_id`; explicit additional rows are unmarked. Both types keep
+rows retain the default marker; explicit additional rows are unmarked. Both types keep
 `current_owner_id` as the legacy transfer anchor and `created_by` as custody.
-`business_space_of` resolves only a marked open row with live membership. Closing A
-never promotes B. Reopening a marked historical row still conflicts with another
-marked open default, while an additional row does not consume that slot. Legacy
-transfer eligibility remains conservative; transfer of an additional row does not
-move the marked default. Directory ordering puts the live marked default first.
+`20261127213122_owners_hold_many_businesses.sql` drops the unique open default index
+`spaces_one_open_business_idx`: a person can own several open Businesses, marked or
+not, so a member who owns one can receive a transfer, and reopening a marked
+historical row never conflicts with another open one. The first Business is still
+created once per person, under the lock on the person's row.
+`business_space_of` resolves only a marked open row with live membership. When a
+person holds several, it returns one the person created before one received by
+transfer, then the oldest. Closing A never promotes B. Directory ordering puts the
+person's own marked rows first.
 
 Workspace details and appearance are Business-scoped JSON objects, written only
 through the service. The revision trigger covers changes to canonical display name,
@@ -4516,7 +4519,8 @@ separates `spaces.current_owner_id`, now the legacy default/transfer anchor,
 from `spaces.created_by`, the unchanged record custodian. Canonical active Owner
 membership now supplies ordinary authority. The new owner column is
 backfilled, indexed, nullable only for a closed Business and references Auth
-with SET NULL. The one-open-Business unique index uses current ownership.
+with SET NULL. The one-open-Business unique index used current ownership until
+`20261127213122_owners_hold_many_businesses.sql` dropped it.
 The legacy financial composite custody keys are unchanged.
 
 `business_ownership_transfers` stores the Business lifetime key, original owner,

@@ -62,6 +62,13 @@ class HeldFile:
     settled_at: datetime | None = None
 
 
+@dataclass(frozen=True)
+class PendingFile:
+    held: HeldFile
+    draft: DocumentDraft
+    lease_until: datetime | None
+
+
 def is_held(draft: DocumentDraft) -> bool:
     return draft.resolution.get(MARK) is True
 
@@ -195,6 +202,25 @@ class PostgresHeldFiles:
                 (user_id,),
             )
             return [_row(row) for row in cursor.fetchall()]
+
+    def pending_for_user(
+        self, user_id: str, held_id: str | None = None
+    ) -> list[PendingFile]:
+        with self.pool.connection() as db, db.cursor(row_factory=dict_row) as cursor:
+            cursor.execute(
+                "select h.*, d.draft, c.lease_until from public.whatsapp_held_files h"
+                " join public.financial_document_extractions d on (d.user_id,d.connection_id)=(h.user_id,h.connection_id)"
+                " join public.financial_source_connections c on (c.user_id,c.id)=(h.user_id,h.connection_id)"
+                " where h.user_id=%s and h.state='held' and c.owner_space_id is null"
+                " and (%s::uuid is null or h.id=%s) order by h.held_at desc,h.id",
+                (user_id, held_id, held_id),
+            )
+            pending = []
+            for row in cursor.fetchall():
+                draft = DocumentDraft.model_validate(row.pop("draft"))
+                lease_until = row.pop("lease_until")
+                pending.append(PendingFile(_row(row), draft, lease_until))
+            return pending
 
     @contextmanager
     def assignment(
@@ -375,6 +401,23 @@ class InMemoryHeldFiles:
     def list_for_user(self, user_id: str) -> list[HeldFile]:
         with self._lock:
             return [row for row in self.rows.values() if row.user_id == user_id]
+
+    def pending_for_user(
+        self, user_id: str, held_id: str | None = None
+    ) -> list[PendingFile]:
+        with self._lock:
+            pending = []
+            for row in self.list_for_user(user_id):
+                if row.state != "held" or (held_id and row.id != held_id):
+                    continue
+                key = {"user_id": user_id, "connection_id": row.connection_id}
+                draft = self.store.draft(**key)
+                connection = self.store.connections.get_any_scope(**key)
+                if draft is not None and space_id(connection.scope) is None:
+                    pending.append(PendingFile(row, draft, connection.lease_until))
+            return sorted(
+                pending, key=lambda item: (-item.held.held_at.timestamp(), item.held.id)
+            )
 
     def settle(
         self,

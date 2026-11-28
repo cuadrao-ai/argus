@@ -80,7 +80,7 @@ export default function InvitationPreviewModal(props: InvitationProps) {
   const { t } = useTranslation();
   if (isBelowDesktop) return <BottomSheet isOpen onClose={props.onClose}
     title={t("workspace_setup_preview.batch_title")} closeLabel={t("common.close")} backLabel={t("common.back")}
-    snaps={["full"]} initialSnap="full">
+    snaps="fit" fitUpTo="full">
     <div data-invitation-modal className="bg-white px-0 pb-5 pt-3 dark:bg-[#1f2225]">{props.children}</div>
   </BottomSheet>;
   return <DesktopModal {...props} />;

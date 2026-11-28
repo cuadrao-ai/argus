@@ -63,7 +63,8 @@ domain/business/lifecycle.py:_export_history SQL select created_by with (space_i
 domain/business/receipt_consent.py:set SQL select created_by, where created_by=%s with (space_id, owner_id)
 domain/business/receipt_consent.py:status_on_connection SQL select created_by, where created_by=%s with (space_id, owner_id)
 domain/business/reporting_store.py:_recorded_activities stored.account.user_id == context.owner_id
-domain/business/spaces.py:create SQL insert created_by, insert current_owner_id, on current_owner_id, returning created_by with (name, person_id, person_id, country, business_country(country).currency)
+domain/business/spaces.py:create SQL insert created_by, insert current_owner_id, returning created_by with (name, person_id, person_id, country, business_country(country).currency)
+domain/business/spaces.py:create SQL where current_owner_id = %s with (person_id,)
 domain/business/spaces.py:get SQL select created_by with (space_id,)
 domain/business/spaces.py:open_space SQL select created_by with (person_id,)
 domain/business/spaces.py:rename SQL returning created_by with (name, space_id)

@@ -237,7 +237,13 @@ export default function BusinessInvitationForm({ onClose, onRefused }: { onClose
 
   const sendable = rows.filter(row => !isDone(row) && row.email.trim()).length;
   const sendLabel = busy ? t(copy("invite_sending")) : partial || failure ? t(copy("batch_retry")) : sendable > 1 ? t(copy("batch_send_count"), { count: sendable }) : t(copy(sendable === 1 ? "batch_send_one" : "batch_send"));
-  const content = <form ref={form} noValidate aria-busy={busy} onSubmit={event => { event.preventDefault(); void submit(); }} className={isBelowDesktop ? "pb-5 pt-1 text-[#172b26] dark:text-white" : "flex min-h-0 flex-col"}>
+  const actions = finished
+    ? <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <button type="button" className={`${secondaryButtonClass} ${footerButtonShape} w-full sm:w-auto`} onClick={() => { setRows([emptyRow()]); requestAnimationFrame(() => firstField.current?.focus()); }}>{t(copy("batch_more"))}</button>
+        <button type="button" className={`${primaryButtonClass} ${footerButtonShape} w-full sm:w-auto`} onClick={close}>{t(copy("batch_done"))}</button>
+      </div>
+    : <button type="submit" form={formId} className={`${primaryButtonClass} ${footerButtonShape} w-full`} disabled={busy || blocked || unnamed}>{sendLabel}</button>;
+  const content = <form id={formId} ref={form} noValidate aria-busy={busy} onSubmit={event => { event.preventDefault(); void submit(); }} className={isBelowDesktop ? "pt-1 text-[#172b26] dark:text-white" : "flex min-h-0 flex-col"}>
     <p className="mb-3 break-words text-[14px] leading-[21px] text-[#56635e] dark:text-white/70"><Trans i18nKey={copy("batch_subtitle")} values={{ business: formatBusinessName(chosen?.name, t("business.overview.title", "My business")) }} components={{ strong: <strong className="text-[16px] font-semibold text-[#172b26] dark:text-white" /> }} /></p>
     {finished || partial ? <div ref={summary} tabIndex={-1} role="status" className="mb-4 outline-none">
       <p className="text-[21px] font-semibold">{headline}</p>
@@ -253,17 +259,10 @@ export default function BusinessInvitationForm({ onClose, onRefused }: { onClose
       {refused ? <p>{t("auth.business_unavailable.body", { supportEmail })}</p> : null}
       <ReferenceCode reference={failure.reference} />
     </div> : null}
-    <div className="mt-4 border-t border-[#DCE0DA] pt-4 dark:border-white/10">
-      {finished
-        ? <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <button type="button" className={`${secondaryButtonClass} ${footerButtonShape} w-full sm:w-auto`} onClick={() => { setRows([emptyRow()]); requestAnimationFrame(() => firstField.current?.focus()); }}>{t(copy("batch_more"))}</button>
-            <button type="button" className={`${primaryButtonClass} ${footerButtonShape} w-full sm:w-auto`} onClick={close}>{t(copy("batch_done"))}</button>
-          </div>
-        : <button type="submit" className={`${primaryButtonClass} ${footerButtonShape} w-full`} disabled={busy || blocked || unnamed}>{sendLabel}</button>}
-    </div>
+    {!isBelowDesktop && <div className="mt-4 border-t border-[#DCE0DA] pt-4 dark:border-white/10">{actions}</div>}
   </form>;
 
   const title = t(copy("batch_title"));
-  if (isBelowDesktop) return <BottomSheet isOpen onClose={close} title={title} closeLabel={t("common.close")} backLabel={t("common.back")} snaps={["full"]} initialSnap="full">{content}</BottomSheet>;
+  if (isBelowDesktop) return <BottomSheet isOpen onClose={close} title={title} closeLabel={t("common.close")} backLabel={t("common.back")} snaps="fit" fitUpTo="full" footer={actions}>{content}</BottomSheet>;
   return <CenteredDialog title={title} firstField={firstField} onClose={close}>{content}</CenteredDialog>;
 }

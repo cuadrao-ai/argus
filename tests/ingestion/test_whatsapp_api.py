@@ -212,9 +212,15 @@ def test_flag_off_answers_404_everywhere(client: TestClient) -> None:
         client.get(WEBHOOK, params={"hub.mode": "subscribe"}),
         client.post(WEBHOOK, content=raw, headers={"X-Hub-Signature-256": sign(raw)}),
         client.post(CODES, json=UNSHOWN_LINK, headers=bearer(ALICE)),
+        client.get("/api/v1/whatsapp/held-files", headers=bearer(ALICE)),
+        client.get("/api/v1/whatsapp/held-files/00000000-0000-0000-0000-000000000001/preview", headers=bearer(ALICE)),
+        client.post(
+            "/api/v1/whatsapp/held-files/00000000-0000-0000-0000-000000000001/assign",
+            headers=bearer(ALICE), json={"business_id": "00000000-0000-0000-0000-000000000002"},
+        ),
         client.get(LINK, headers=bearer(ALICE)),
     ]
-    assert [r.status_code for r in responses] == [404] * 4
+    assert all(r.status_code == 404 for r in responses)
     assert {r.json()["code"] for r in responses} == {"whatsapp_unavailable"}
     # Unlinking is never gated; with intake off nothing here holds a link.
     assert client.delete(LINK, headers=bearer(ALICE)).status_code == 204
@@ -512,3 +518,19 @@ def test_unlink_answers_503_when_the_link_store_cannot_be_reached(
         503,
         "whatsapp_link_unavailable",
     )
+
+
+def test_held_list_only_offers_the_signed_in_senders_receiving_businesses(
+    wa_client, identities
+):
+    owner = identities[ALICE]["id"]
+    own = resolve_business_scope(business_spaces(), owner).owner.space_id
+    other = resolve_business_scope(business_spaces(), identities[BOB]["id"]).owner.space_id
+    response = wa_client.get("/api/v1/whatsapp/held-files", headers=bearer(ALICE))
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "private, no-store"
+    assert response.json() == {
+        "files": [],
+        "receiving_businesses": [{"space_id": own, "name": "Mi negocio"}],
+    }
+    assert other not in response.text

@@ -900,6 +900,15 @@
       "expired_message": "Este mensaje ya no sirve.",
       "expired_title": "El código venció",
       "expires_in": "Vence en {{time}}",
+      "held": {
+        "assign": "Asignar",
+        "assigned": "Archivo asignado a {{business}}.",
+        "reason": {
+          "no_buyer_rnc": "Sin RNC del comprador",
+          "no_match": "El RNC no es de ninguno de tus negocios que reciben",
+          "two_matches": "Coincide con más de uno de tus negocios"
+        }
+      },
       "held_help": "Esperan que elijas a qué negocio van",
       "held_title": "Archivos sin negocio",
       "intro_body": "Vincula tu número y envía fotos o PDF de facturas y recibos al número de Cuadrao. $t(settings.whatsapp.routing_help)",
@@ -4147,7 +4156,6 @@
       },
       "errors": {
         "accept_uncertain": "No pudimos confirmar la aceptación. Actualiza para comprobar el resultado.",
-        "already_open": "Ya tienes otro negocio abierto. Solo puedes tener uno abierto a la vez.",
         "business_unavailable": "Este negocio no está disponible con tu acceso actual.",
         "close_uncertain": "No pudimos confirmar el cierre. Reintenta para comprobar el resultado.",
         "decline_uncertain": "No pudimos confirmar el rechazo. Actualiza para comprobar el resultado.",
@@ -4198,8 +4206,7 @@
         "ineligible": {
           "account_unavailable": "Esta cuenta no puede recibir el negocio.",
           "email_unconfirmed": "Falta confirmar su correo.",
-          "not_admin": "Primero cambia su acceso a Administrador.",
-          "owns_open_business": "Ya es dueño de otro negocio abierto."
+          "not_admin": "Primero cambia su acceso a Administrador."
         },
         "member": "Nuevo dueño",
         "none_eligible": "Ningún miembro puede recibir el negocio ahora. Revisa el motivo junto a cada persona.",
